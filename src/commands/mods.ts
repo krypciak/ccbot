@@ -40,9 +40,26 @@ export class ModsToolsGetCommand extends CCBotCommand {
         if (modDB) {
             if (modDB.packages.length > 0) {
                 const mods: string[] = modDB.packages.map(pkg => {
-                    const components: string[] = [`**${getStringFromLocalisedString(pkg.title)} (${pkg.version})**`];
-                    if (pkg.description) components.push(getStringFromLocalisedString(pkg.description));
-                    for (const url of [pkg.homepage, pkg.repository]) {
+                    const metadata = pkg.metadataCCMod!;
+
+                    const components: string[] = [];
+
+                    let header = `**${getStringFromLocalisedString(metadata.title)}**`;
+                    header += ` **(${metadata.version})**`;
+                    header += ` by ***${typeof metadata.authors === 'string' ? metadata.authors : metadata.authors.join(', ')}***`;
+                    if (pkg.stars) {
+                        header += ` (⭐**${pkg.stars}**)`;
+                    }
+                    components.push(header);
+
+                    components.push(getStringFromLocalisedString(metadata.description));
+
+                    if (metadata.tags) {
+                        metadata.tags = metadata.tags.filter(tag => tag != 'externaltool');
+                        if (metadata.tags.length > 0) components.push(`Tags: *${metadata.tags.join(', ')}*`);
+                    }
+
+                    for (const url of [metadata.homepage, metadata.repository]) {
                         if (!url) continue;
                         const repoPage = getRepositoryEntry(url)[0];
                         components.push(`[View at ${repoPage.name}](${repoPage.url})`);

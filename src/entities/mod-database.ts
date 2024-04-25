@@ -16,7 +16,7 @@
 import {CCBot, CCBotEntity} from '../ccbot';
 import {getJSON} from '../utils';
 import {WatcherEntity, WatcherEntityData} from '../watchers';
-import {PackageDB, ValidPkgCCMod} from 'ccmoddb/build/src/types';
+import {Package, PackageDB} from 'ccmoddb/build/src/types';
 
 export interface CCModDBViewerEntityData extends WatcherEntityData {
     endpoint: string;
@@ -47,7 +47,7 @@ abstract class CCModDBViewerEntity<T> extends WatcherEntity {
 
 /// Acts as the source for mod list information.
 export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
-    public packages: ValidPkgCCMod[] = [];
+    public packages: Package[] = [];
 
     public constructor(c: CCBot, data: CCModDBViewerEntityData) {
         super(c, 'mod-database-manager', data);
@@ -65,14 +65,14 @@ export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
             const isInstallable = pkg.installation.some(i => i.type === 'zip');
             if (!isInstallable) continue;
 
-            this.packages.push(metadata);
+            this.packages.push(pkg);
         }
     }
 }
 
 /// Acts as the source for mod list information.
 export class ToolDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
-    public packages: ValidPkgCCMod[] = [];
+    public packages: Package[] = [];
 
     public constructor(c: CCBot, data: CCModDBViewerEntityData) {
         super(c, 'tool-database-manager', data);
@@ -80,7 +80,7 @@ export class ToolDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
 
     public parseEndpointResponse(data: PackageDB): void {
         this.packages.length = 0;
-        this.packages.push(...Object.values(data).map(pkg => pkg.metadataCCMod!));
+        this.packages.push(...Object.values(data));
     }
 }
 
