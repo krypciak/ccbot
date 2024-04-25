@@ -82,13 +82,6 @@ export interface GuildIndex {
     [guildID: string]: GuildData;
 }
 
-export interface CCModDBPackage {
-    name: string;
-    version: string;
-    description?: string;
-    page: Page[];
-}
-
 export interface EmoteRegistryDumpEntry {
     ref: string;
     id: discord.Snowflake;

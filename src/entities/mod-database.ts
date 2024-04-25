@@ -14,17 +14,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import {CCBot, CCBotEntity} from '../ccbot';
-import {CCModDBPackage} from '../data/structures';
 import {getJSON} from '../utils';
 import {WatcherEntity, WatcherEntityData} from '../watchers';
-import {PackageDB, Page} from 'ccmoddb/build/src/types';
+import {PackageDB, ValidPkgCCMod} from 'ccmoddb/build/src/types';
 
 export interface CCModDBViewerEntityData extends WatcherEntityData {
     endpoint: string;
-}
-
-interface ToolsDatabase {
-    tools: {[id: string]: CCModDBPackage};
 }
 
 /// The base 'retrieve a JSON file of type T periodically' type.
@@ -50,28 +45,9 @@ abstract class CCModDBViewerEntity<T> extends WatcherEntity {
     }
 }
 
-// copied from https://github.com/CCDirectLink/CCModDB/blob/f4b7caca87776465f2dcadc6a98a9d24f0935f98/build/src/db.ts#L84-L102
-function getModHomepageWebsiteName(url?: string): Page[] {
-    if (!url) return [];
-
-    let name: string;
-    switch (new URL(url).hostname) {
-        case 'github.com':
-            name = 'GitHub';
-            break;
-        case 'gitlab.com':
-            name = 'GitLab';
-            break;
-        default:
-            name = "mod's homepage";
-    }
-
-    return [{name, url}];
-}
-
 /// Acts as the source for mod list information.
 export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
-    public packages: CCModDBPackage[] = [];
+    public packages: ValidPkgCCMod[] = [];
 
     public constructor(c: CCBot, data: CCModDBViewerEntityData) {
         super(c, 'mod-database-manager', data);
@@ -81,36 +57,30 @@ export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
         this.packages.length = 0;
         for (const id in dbData) {
             const pkg = dbData[id];
-            const {metadata} = pkg;
-            if (metadata) {
-                if (metadata.ccmodType === 'base' || metadata.ccmodType === 'tool') continue;
+            const {metadataCCMod: metadata} = pkg;
+            if (!metadata) throw `Mod: ${pkg.metadata!.name} has to have a ccmod.json, duno how this happended`;
 
-                const isInstallable = pkg.installation.some(i => i.type === 'zip');
-                if (!isInstallable) continue;
+            if (metadata.tags && metadata.tags.some(tag => tag == 'base' || tag == 'externaltool')) continue;
 
-                const pkg2: CCModDBPackage = {
-                    name: metadata.ccmodHumanName || metadata.name,
-                    version: metadata.version,
-                    description: metadata.description,
-                    page: getModHomepageWebsiteName(metadata.homepage),
-                };
-                this.packages.push(pkg2);
-            }
+            const isInstallable = pkg.installation.some(i => i.type === 'zip');
+            if (!isInstallable) continue;
+
+            this.packages.push(metadata);
         }
     }
 }
 
 /// Acts as the source for mod list information.
-export class ToolDatabaseEntity extends CCModDBViewerEntity<ToolsDatabase> {
-    public packages: CCModDBPackage[] = [];
+export class ToolDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
+    public packages: ValidPkgCCMod[] = [];
 
     public constructor(c: CCBot, data: CCModDBViewerEntityData) {
         super(c, 'tool-database-manager', data);
     }
 
-    public parseEndpointResponse(data: ToolsDatabase): void {
+    public parseEndpointResponse(data: PackageDB): void {
         this.packages.length = 0;
-        this.packages.push(...Object.values(data.tools));
+        this.packages.push(...Object.values(data).map(pkg => pkg.metadataCCMod!));
     }
 }
 
