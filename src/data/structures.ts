@@ -33,8 +33,12 @@ export interface Command {
     // Reactions to the command.
     commandReactions?: string[];
 }
-export interface CommandGroup {[command: string]: Command}
-export interface CommandSet {[group: string]: CommandGroup}
+export interface CommandGroup {
+    [command: string]: Command;
+}
+export interface CommandSet {
+    [group: string]: CommandGroup;
+}
 
 // secrets.json
 export interface Secrets {
@@ -60,18 +64,22 @@ export interface Secrets {
         // GitHub api token.
         // Create at https://github.com/settings/tokens?type=beta
         // requires permissions: contents:write, Pull requests: read and write
-        token: string
+        token: string;
         // for example: "CCDirectLink"
-        owner: string
+        owner: string;
         // for example: "CCModDB"
-        repo: string
-    }
+        repo: string;
+    };
 }
 
 // Implements the persistence backend.
-export interface GuildData {[setting: string]: unknown}
+export interface GuildData {
+    [setting: string]: unknown;
+}
 
-export interface GuildIndex {[guildID: string]: GuildData}
+export interface GuildIndex {
+    [guildID: string]: GuildData;
+}
 
 /// see https://github.com/CCDirectLink/CCModDB
 export interface CCModDBPackagePage {

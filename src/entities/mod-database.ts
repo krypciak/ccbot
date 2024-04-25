@@ -46,7 +46,7 @@ interface NPDatabasePackageInstallation {
 }
 
 interface ToolsDatabase {
-    tools: { [id: string]: CCModDBPackage };
+    tools: {[id: string]: CCModDBPackage};
 }
 
 /// The base 'retrieve a JSON file of type T periodically' type.
@@ -67,7 +67,7 @@ abstract class CCModDBViewerEntity<T> extends WatcherEntity {
     public toSaveData(): CCModDBViewerEntityData {
         return Object.assign(super.toSaveData(), {
             refreshMs: this.refreshMs,
-            endpoint: this.endpoint
+            endpoint: this.endpoint,
         });
     }
 }
@@ -85,7 +85,7 @@ function getModHomepageWebsiteName(url?: string): CCModDBPackagePage[] {
             name = 'GitLab';
             break;
         default:
-            name = 'mod\'s homepage';
+            name = "mod's homepage";
     }
 
     return [{name, url}];
@@ -103,11 +103,11 @@ export class ModDatabaseEntity extends CCModDBViewerEntity<NPDatabase> {
         this.packages.length = 0;
         for (const id in dbData) {
             const pkg = dbData[id];
-            const { metadata } = pkg;
+            const {metadata} = pkg;
 
             if (metadata.ccmodType === 'base' || metadata.ccmodType === 'tool') continue;
 
-            const isInstallable = pkg.installation.some((i) => i.type === 'ccmod' || i.type === 'modZip');
+            const isInstallable = pkg.installation.some(i => i.type === 'ccmod' || i.type === 'modZip');
             if (!isInstallable) continue;
 
             const pkg2: CCModDBPackage = {
