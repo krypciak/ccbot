@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import {Page} from 'ccmoddb/build/src/types';
 import * as discord from 'discord.js';
 import * as commando from 'discord.js-commando';
 // commands.json
@@ -81,16 +82,11 @@ export interface GuildIndex {
     [guildID: string]: GuildData;
 }
 
-/// see https://github.com/CCDirectLink/CCModDB
-export interface CCModDBPackagePage {
-    name: string;
-    url: string;
-}
 export interface CCModDBPackage {
     name: string;
     version: string;
     description?: string;
-    page: CCModDBPackagePage[];
+    page: Page[];
 }
 
 export interface EmoteRegistryDumpEntry {

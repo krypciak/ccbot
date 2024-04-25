@@ -14,35 +14,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import {CCBot, CCBotEntity} from '../ccbot';
-import {CCModDBPackage, CCModDBPackagePage} from '../data/structures';
+import {CCModDBPackage} from '../data/structures';
 import {getJSON} from '../utils';
 import {WatcherEntity, WatcherEntityData} from '../watchers';
+import {PackageDB, Page} from 'ccmoddb/build/src/types';
 
 export interface CCModDBViewerEntityData extends WatcherEntityData {
     endpoint: string;
-}
-
-interface NPDatabase {
-    [id: string]: NPDatabasePackage;
-}
-
-interface NPDatabasePackage {
-    metadata: NPDatabasePackageMetadata;
-    installation: NPDatabasePackageInstallation[];
-}
-
-interface NPDatabasePackageMetadata {
-    ccmodType?: 'base' | 'tool';
-    ccmodHumanName: string;
-    name: string;
-    version: string;
-    description?: string;
-    homepage?: string;
-}
-
-interface NPDatabasePackageInstallation {
-    type: 'modZip' | 'ccmod';
-    url: string;
 }
 
 interface ToolsDatabase {
@@ -73,7 +51,7 @@ abstract class CCModDBViewerEntity<T> extends WatcherEntity {
 }
 
 // copied from https://github.com/CCDirectLink/CCModDB/blob/f4b7caca87776465f2dcadc6a98a9d24f0935f98/build/src/db.ts#L84-L102
-function getModHomepageWebsiteName(url?: string): CCModDBPackagePage[] {
+function getModHomepageWebsiteName(url?: string): Page[] {
     if (!url) return [];
 
     let name: string;
@@ -92,31 +70,32 @@ function getModHomepageWebsiteName(url?: string): CCModDBPackagePage[] {
 }
 
 /// Acts as the source for mod list information.
-export class ModDatabaseEntity extends CCModDBViewerEntity<NPDatabase> {
+export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
     public packages: CCModDBPackage[] = [];
 
     public constructor(c: CCBot, data: CCModDBViewerEntityData) {
         super(c, 'mod-database-manager', data);
     }
 
-    public parseEndpointResponse(dbData: NPDatabase): void {
+    public parseEndpointResponse(dbData: PackageDB): void {
         this.packages.length = 0;
         for (const id in dbData) {
             const pkg = dbData[id];
             const {metadata} = pkg;
+            if (metadata) {
+                if (metadata.ccmodType === 'base' || metadata.ccmodType === 'tool') continue;
 
-            if (metadata.ccmodType === 'base' || metadata.ccmodType === 'tool') continue;
+                const isInstallable = pkg.installation.some(i => i.type === 'zip');
+                if (!isInstallable) continue;
 
-            const isInstallable = pkg.installation.some(i => i.type === 'ccmod' || i.type === 'modZip');
-            if (!isInstallable) continue;
-
-            const pkg2: CCModDBPackage = {
-                name: metadata.ccmodHumanName || metadata.name,
-                version: metadata.version,
-                description: metadata.description,
-                page: getModHomepageWebsiteName(metadata.homepage),
-            };
-            this.packages.push(pkg2);
+                const pkg2: CCModDBPackage = {
+                    name: metadata.ccmodHumanName || metadata.name,
+                    version: metadata.version,
+                    description: metadata.description,
+                    page: getModHomepageWebsiteName(metadata.homepage),
+                };
+                this.packages.push(pkg2);
+            }
         }
     }
 }

@@ -22,22 +22,7 @@ import * as prettierPluginBabel from 'prettier/plugins/babel';
 import * as prettierPluginEstree from 'prettier/plugins/estree';
 
 import {OctokitUtil} from './octokit';
-
-type ZipInputLocation = {
-    type?: 'zip';
-    // The URL of the ZIP file.
-    url: string;
-    // The subdirectory in which the package.json file is kept.
-    // Note that GitHub archives have an additional enclosing directory, so you will usually need to use this.
-    // Only this subdirectory & subdirectories of it are extracted, and it is extracted at the target installation directory.
-    source?: string;
-    // If provided, then the package.json file is at this location in the archive, regardless of 'source'.
-    // This must pretty much only be used for base packages.
-    packageJSONPath?: string;
-    ccmodPath?: string;
-};
-type InputLocation = ZipInputLocation;
-type InputLocations = InputLocation[];
+import {InputLocations} from 'ccmoddb/build/src/types';
 
 async function prettierJson(obj: any): Promise<string> {
     return await prettier.format(JSON.stringify(obj), {
