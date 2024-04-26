@@ -98,7 +98,10 @@ export function getStringFromLocalisedString(str: LocalizedString, lang = 'en_US
         str = newStr;
     }
     /* remove crosscode icons and colors */
-    return str.replace(/\\c\[[^\]]*\]/g, '').replace(/\\s\[[^\]]*\]/g, '');
+    return str
+        .replace(/\\c\[[^\]]*\]/g, '')
+        .replace(/\\s\[[^\]]*\]/g, '')
+        .replace(/\\i\[[^\]]*\]/g, '');
 }
 
 // https://github.com/krypciak/CCModDB/blob/003a1144bd73b279778cb26242b72cf85d7574b9/build/src/api.ts#L23
