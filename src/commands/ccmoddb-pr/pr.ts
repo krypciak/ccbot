@@ -55,11 +55,13 @@ function addOrUpdateUrl(inputs: InputLocations, url: string) {
     inputs.push(obj);
 }
 
-const baseBranch = 'master';
+const masterBranch = 'master';
+const testingBranch = 'testing';
 const botBranchPrefix = 'ccbot/';
 const inputLocationsPath = 'input-locations.json';
 
-async function createPr(url: string, author: string) {
+async function createPr(url: string, author: string, isTestingBranch: boolean) {
+    const branch = isTestingBranch ? testingBranch : masterBranch;
     if (!url.startsWith('https://github.com/') || !(url.endsWith('.zip') || url.endsWith('.ccmod'))) {
         return 'Invalid url :(';
     }
@@ -75,15 +77,15 @@ async function createPr(url: string, author: string) {
         const maxBranchId: number = branchIds.reduce((acc, v) => (v > acc ? v : acc), -1);
         const newBranchName: string = `${botBranchPrefix}${maxBranchId + 1}`;
 
-        await OctokitUtil.createBranch(baseBranch, newBranchName);
-        const inputLocationsStr = await OctokitUtil.fetchFile(baseBranch, inputLocationsPath);
+        await OctokitUtil.createBranch(branch, newBranchName);
+        const inputLocationsStr = await OctokitUtil.fetchFile(branch, inputLocationsPath);
         const inputLocationsJson: InputLocations = JSON.parse(inputLocationsStr);
         addOrUpdateUrl(inputLocationsJson, url);
 
         const newContent = await prettierJson(inputLocationsJson);
 
-        await OctokitUtil.commitFile(newBranchName, inputLocationsPath, newContent, `CCBot: ${newBranchName}`);
-        const prUrl = await OctokitUtil.createPullRequest(baseBranch, newBranchName, `CCBot: ${newBranchName}`, `Submitted by: <br>${author}`);
+        await OctokitUtil.commitFile(newBranchName, inputLocationsPath, newContent, `CCBot ${branch}: ${newBranchName}`);
+        const prUrl = await OctokitUtil.createPullRequest(branch, newBranchName, `CCBot ${branch}: ${newBranchName}`, `Submitted by: <br>${author}`);
         return `PR submitted!\n${prUrl}`;
     } catch (err) {
         console.log(err);
@@ -95,7 +97,7 @@ export default class ModsPrCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt = {
             name: 'publish-mod',
-            description: 'Publish a mod to CCModDB',
+            description: 'Publish or update a mod to CCModDB, a central mod repository.',
             group: 'general',
             memberName: 'publish-mod',
             args: [
@@ -104,15 +106,21 @@ export default class ModsPrCommand extends CCBotCommand {
                     prompt: 'Mod .zip or .ccmod GitHub link',
                     type: 'string',
                 },
+                {
+                    key: 'branch',
+                    prompt: 'Target branch. Either "master" or "testing". Use "testing" if you want to publish this mod as a pre-release.',
+                    type: 'string',
+                    default: 'master'
+                },
             ],
         };
         super(client, opt);
     }
 
-    public async run(message: commando.CommandoMessage, args: {url: string}): Promise<discord.Message | discord.Message[]> {
+    public async run(message: commando.CommandoMessage, args: {url: string; branch: string}): Promise<discord.Message | discord.Message[]> {
         let text: string;
         if (OctokitUtil.isInited()) {
-            text = await createPr(args.url, message.author.tag);
+            text = await createPr(args.url, message.author.tag, args.branch == 'testing');
         } else text = 'Not configured to be used here!';
         return await message.say(text);
     }
