@@ -55,13 +55,13 @@ function addOrUpdateUrl(inputs: InputLocations, url: string) {
     inputs.push(obj);
 }
 
-const masterBranch = 'master';
+const stableBranch = 'stable';
 const testingBranch = 'testing';
 const botBranchPrefix = 'ccbot/';
 const inputLocationsPath = 'input-locations.json';
 
 async function createPr(url: string, author: string, isTestingBranch: boolean) {
-    const branch = isTestingBranch ? testingBranch : masterBranch;
+    const branch = isTestingBranch ? testingBranch : stableBranch;
     if (!url.startsWith('https://github.com/') || !(url.endsWith('.zip') || url.endsWith('.ccmod'))) {
         return 'Invalid url :(';
     }
@@ -108,9 +108,9 @@ export default class ModsPrCommand extends CCBotCommand {
                 },
                 {
                     key: 'branch',
-                    prompt: 'Target branch. Either "master" or "testing". Use "testing" if you want to publish this mod as a pre-release.',
+                    prompt: 'Target branch. Either "stable" or "testing". Use "testing" if you want to publish this mod as a pre-release.',
                     type: 'string',
-                    default: 'master'
+                    default: 'stable'
                 },
             ],
         };
