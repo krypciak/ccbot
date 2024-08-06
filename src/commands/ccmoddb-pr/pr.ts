@@ -145,6 +145,8 @@ export default class ModsPrCommand extends CCBotCommand {
         if (!OctokitUtil.isInited()) return await message.say('Not configured to be used here!');
 
         const text = await createPr(args.url, message.author.tag, args.branch == 'testing');
-        return await message.say(text);
+        const msg = await message.say(text, {});
+        msg.suppressEmbeds(true)
+        return msg
     }
 }
