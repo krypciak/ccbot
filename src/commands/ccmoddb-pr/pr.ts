@@ -42,23 +42,25 @@ async function checkUrlFileType(url: string): Promise<string | undefined> {
     } catch (error) {}
 }
 
-function addOrUpdateUrl(inputs: InputLocations, url: string) {
+function addOrUpdateUrl(inputs: InputLocations, url: string): {changedAnything: boolean; index: number} {
     const obj = {url};
     const repoUrl = url.split('/').slice(0, 5).join('/');
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i];
         if (input.url.startsWith(repoUrl)) {
+            const changedAnything = inputs[i].url != obj.url;
             inputs[i] = obj;
-            return;
+            return {changedAnything, index: i};
         }
     }
-    inputs.push(obj);
+    return {index: inputs.push(obj), changedAnything: true};
 }
 
 const stableBranch = 'stable';
 const testingBranch = 'testing';
 const botBranchPrefix = 'ccbot/';
 const inputLocationsPath = 'input-locations.json';
+const inputLocationsOldPath = 'input-locations.old.json';
 
 async function createPr(url: string, author: string, isTestingBranch: boolean) {
     const branch = isTestingBranch ? testingBranch : stableBranch;
@@ -80,16 +82,31 @@ async function createPr(url: string, author: string, isTestingBranch: boolean) {
         await OctokitUtil.createBranch(branch, newBranchName);
         const inputLocationsStr = await OctokitUtil.fetchFile(branch, inputLocationsPath);
         const inputLocationsJson: InputLocations = JSON.parse(inputLocationsStr);
-        addOrUpdateUrl(inputLocationsJson, url);
 
-        const newContent = await prettierJson(inputLocationsJson);
+        const {changedAnything, index} = addOrUpdateUrl(inputLocationsJson, url);
 
-        await OctokitUtil.commitFile(newBranchName, inputLocationsPath, newContent, `CCBot ${branch}: ${newBranchName}`);
+        let toCommit: {path: string; json: InputLocations};
+        if (changedAnything) {
+            toCommit = {path: inputLocationsPath, json: inputLocationsJson};
+        } else {
+            /* if nothing was changed in input-locations.json (aka the supplied url was already in input-locations.json)
+             * then change the entry in input-locations.old.json just slightly so that the database actually updates */
+            
+            /* input-locations.old.json has the same contents as input-locations.json at this moment */
+            const inputLocationsOldJson: InputLocations = JSON.parse(inputLocationsStr);
+            inputLocationsOldJson[index].url = url.substring(0, url.length - 1);
+
+            toCommit = {path: inputLocationsOldPath, json: inputLocationsOldJson};
+        }
+
+        const rawJson = await prettierJson(toCommit.json);
+        await OctokitUtil.commitFile(newBranchName, toCommit.path, rawJson, `CCBot ${branch}: ${newBranchName}`);
+
         const prUrl = await OctokitUtil.createPullRequest(branch, newBranchName, `CCBot ${branch}: ${newBranchName}`, `Submitted by: <br>${author}`);
         return `PR submitted!\n${prUrl}`;
     } catch (err) {
         console.log(err);
-        throw err;
+        return err;
     }
 }
 
