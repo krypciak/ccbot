@@ -94,7 +94,9 @@ async function createPr(url: string, author: string, isTestingBranch: boolean) {
 }
 
 export default class ModsPrCommand extends CCBotCommand {
-    public constructor(client: CCBot) {
+    publishChannelId?: string;
+
+    public constructor(client: CCBot, publishChannelId: string | undefined) {
         const opt = {
             name: 'publish-mod',
             description: 'Publish or update a mod to CCModDB, a central mod repository.',
@@ -110,18 +112,22 @@ export default class ModsPrCommand extends CCBotCommand {
                     key: 'branch',
                     prompt: 'Target branch. Either "stable" or "testing". Use "testing" if you want to publish this mod as a pre-release.',
                     type: 'string',
-                    default: 'stable'
+                    default: 'stable',
                 },
             ],
         };
         super(client, opt);
+
+        this.publishChannelId = publishChannelId;
     }
 
     public async run(message: commando.CommandoMessage, args: {url: string; branch: string}): Promise<discord.Message | discord.Message[]> {
-        let text: string;
-        if (OctokitUtil.isInited()) {
-            text = await createPr(args.url, message.author.tag, args.branch == 'testing');
-        } else text = 'Not configured to be used here!';
+        if (this.publishChannelId && message.channel.id !== this.publishChannelId) {
+            return await message.say(`This command is only allowed in <#${this.publishChannelId}>`);
+        }
+        if (!OctokitUtil.isInited()) return await message.say('Not configured to be used here!');
+
+        const text = await createPr(args.url, message.author.tag, args.branch == 'testing');
         return await message.say(text);
     }
 }

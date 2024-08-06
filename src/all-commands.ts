@@ -30,7 +30,7 @@ import {CCBot} from './ccbot';
 import ModsPrCommand from './commands/ccmoddb-pr/pr';
 
 /// Registers all the commands. (More or less.)
-export default function registerAllCommands(cr: CCBot): void {
+export default function registerAllCommands(cr: CCBot, ccmoddbPublishChannelId: string | undefined): void {
     cr.registry.registerDefaultTypes();
     cr.registry.registerDefaultGroups();
     cr.registry.registerDefaultCommands({
@@ -81,5 +81,5 @@ export default function registerAllCommands(cr: CCBot): void {
 
         .registerCommand(new ModsToolsGetCommand(cr, 'general', 'mods', false))
         .registerCommand(new ModsToolsGetCommand(cr, 'general', 'tools', true))
-        .registerCommand(new ModsPrCommand(cr));
+        .registerCommand(new ModsPrCommand(cr, ccmoddbPublishChannelId));
 }

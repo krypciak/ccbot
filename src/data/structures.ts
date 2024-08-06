@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import {Page} from 'ccmoddb/build/src/types';
 import * as discord from 'discord.js';
 import * as commando from 'discord.js-commando';
 // commands.json
@@ -70,6 +69,8 @@ export interface Secrets {
         owner: string;
         // for example: "CCModDB"
         repo: string;
+        // for example: 1265622108526247900
+        publishChannelId: string;
     };
 }
 

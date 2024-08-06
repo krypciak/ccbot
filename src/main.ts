@@ -48,11 +48,14 @@ class CCBotMain {
         this.client = new CCBotImpl({
             owner: this.secrets.owner,
             commandPrefix: this.secrets.commandPrefix
-        }, this.secrets.twitchClientId, this.secrets.youtubeData3Key);
+        }, this.secrets.twitchClientId, this.secrets.youtubeData3Key, this.secrets.githubCCModDB?.publishChannelId);
         this.dataCollector = null;
 
-        if (this.secrets.githubCCModDB)
-            OctokitUtil.initOctokit(this.secrets.githubCCModDB.token, this.secrets.githubCCModDB.owner, this.secrets.githubCCModDB.repo)
+        if (this.secrets.githubCCModDB) {
+            const { token, owner, repo } = this.secrets.githubCCModDB
+            OctokitUtil.initOctokit(token, owner, repo)
+        }
+
         
         const kickstart = async (): Promise<void> => {
             try {
