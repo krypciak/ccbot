@@ -42,18 +42,19 @@ async function checkUrlFileType(url: string): Promise<string | undefined> {
     } catch (error) {}
 }
 
-function addOrUpdateUrl(inputs: InputLocations, url: string): {changedAnything: boolean; index: number} {
-    const obj = {url};
+function addOrUpdateUrl(inputs: InputLocations, url: string, source: string): {status: 'pushed' | 'changed' | 'sameUrl'; index: number} {
+    const obj = {url, source};
     const repoUrl = url.split('/').slice(0, 5).join('/');
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i];
         if (input.url.startsWith(repoUrl)) {
-            const changedAnything = inputs[i].url != obj.url;
+            const status = inputs[i].url == obj.url ? 'sameUrl' : 'changed';
+            obj.source = source || obj.source
             inputs[i] = obj;
-            return {changedAnything, index: i};
+            return {status, index: i};
         }
     }
-    return {index: inputs.push(obj), changedAnything: true};
+    return {index: inputs.push(obj), status: 'pushed'};
 }
 
 const stableBranch = 'stable';
@@ -62,8 +63,7 @@ const botBranchPrefix = 'ccbot/';
 const inputLocationsPath = 'input-locations.json';
 const inputLocationsOldPath = 'input-locations.old.json';
 
-async function createPr(url: string, author: string, isTestingBranch: boolean) {
-    const branch = isTestingBranch ? testingBranch : stableBranch;
+async function createPr(url: string, author: string, branch: string, source: string) {
     if (!url.startsWith('https://github.com/') || !(url.endsWith('.zip') || url.endsWith('.ccmod'))) {
         return 'Invalid url :(';
     }
@@ -83,15 +83,15 @@ async function createPr(url: string, author: string, isTestingBranch: boolean) {
         const inputLocationsStr = await OctokitUtil.fetchFile(branch, inputLocationsPath);
         const inputLocationsJson: InputLocations = JSON.parse(inputLocationsStr);
 
-        const {changedAnything, index} = addOrUpdateUrl(inputLocationsJson, url);
+        const {status, index} = addOrUpdateUrl(inputLocationsJson, url, source);
 
         let toCommit: {path: string; json: InputLocations};
-        if (changedAnything) {
+        if (status == 'pushed' || status == 'changed') {
             toCommit = {path: inputLocationsPath, json: inputLocationsJson};
         } else {
             /* if nothing was changed in input-locations.json (aka the supplied url was already in input-locations.json)
              * then change the entry in input-locations.old.json just slightly so that the database actually updates */
-            
+
             /* input-locations.old.json has the same contents as input-locations.json at this moment */
             const inputLocationsOldJson: InputLocations = JSON.parse(inputLocationsStr);
             inputLocationsOldJson[index].url = url.substring(0, url.length - 1);
@@ -131,6 +131,12 @@ export default class ModsPrCommand extends CCBotCommand {
                     type: 'string',
                     default: 'stable',
                 },
+                {
+                    key: 'source',
+                    prompt: 'The relative path to the directory containing the `ccmod.json` file.',
+                    type: 'string',
+                    default: '',
+                },
             ],
         };
         super(client, opt);
@@ -138,15 +144,19 @@ export default class ModsPrCommand extends CCBotCommand {
         this.publishChannelId = publishChannelId;
     }
 
-    public async run(message: commando.CommandoMessage, args: {url: string; branch: string}): Promise<discord.Message | discord.Message[]> {
+    public async run(message: commando.CommandoMessage, args: {url: string; branch: string; source: string}): Promise<discord.Message | discord.Message[]> {
         if (this.publishChannelId && message.channel.id !== this.publishChannelId) {
             return await message.say(`This command is only allowed in <#${this.publishChannelId}>`);
         }
         if (!OctokitUtil.isInited()) return await message.say('Not configured to be used here!');
 
-        const text = await createPr(args.url, message.author.tag, args.branch == 'testing');
+        if (args.branch != stableBranch && args.branch != testingBranch) {
+            return message.say('Invalid branch!', {});
+        }
+
+        const text = await createPr(args.url, message.author.tag, args.branch, args.source);
         const msg = await message.say(text, {});
-        msg.suppressEmbeds(true)
-        return msg
+        msg.suppressEmbeds(true);
+        return msg;
     }
 }
