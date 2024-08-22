@@ -111,9 +111,7 @@ async function createPr(url: string, author: string, branch: string, source: str
 }
 
 export default class ModsPrCommand extends CCBotCommand {
-    publishChannelId?: string;
-
-    public constructor(client: CCBot, publishChannelId: string | undefined) {
+    public constructor(client: CCBot, public publishChannelId: string[] | undefined) {
         const opt = {
             name: 'publish-mod',
             description: 'Publish or update a mod to CCModDB, a central mod repository.',
@@ -145,7 +143,7 @@ export default class ModsPrCommand extends CCBotCommand {
     }
 
     public async run(message: commando.CommandoMessage, args: {url: string; branch: string; source: string}): Promise<discord.Message | discord.Message[]> {
-        if (this.publishChannelId && message.channel.id !== this.publishChannelId) {
+        if (this.publishChannelId && !this.publishChannelId.includes(message.channel.id)) {
             return await message.say(`This command is only allowed in <#${this.publishChannelId}>`);
         }
         if (!OctokitUtil.isInited()) return await message.say('Not configured to be used here!');

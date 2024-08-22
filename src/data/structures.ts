@@ -70,7 +70,7 @@ export interface Secrets {
         // for example: "CCModDB"
         repo: string;
         // for example: 1265622108526247900
-        publishChannelId: string;
+        publishChannelId: string[];
     };
 }
 

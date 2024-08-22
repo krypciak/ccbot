@@ -29,7 +29,7 @@ export default class CCBotImpl extends CCBot {
         co: commando.CommandoClientOptions,
         twitchClientId: string | undefined,
         ytClientId: string | undefined,
-        ccmoddbPublishChannelId: string | undefined
+        ccmoddbPublishChannelId: string[] | undefined
     ) {
         super(co);
         this.registry = new CCBotCommandRegistry(this);
