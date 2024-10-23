@@ -20,7 +20,7 @@ import CCBotImpl from './ccbot-impl';
 import {Secrets} from './data/structures'
 import * as fs from 'fs';
 import * as net from 'net';
-import {OctokitUtil} from './commands/ccmoddb-pr/octokit';
+import * as octokitUtil from './commands/ccmoddb-pr/octokit';
 
 declare global {
     // Using var declarations is the only way to get away from weird hacks.
@@ -53,7 +53,7 @@ class CCBotMain {
 
         if (this.secrets.githubCCModDB) {
             const { token, owner, repo } = this.secrets.githubCCModDB
-            OctokitUtil.initOctokit(token, owner, repo)
+            octokitUtil.initOctokit(token, owner, repo)
         }
 
         

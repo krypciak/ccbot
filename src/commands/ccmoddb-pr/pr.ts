@@ -21,10 +21,10 @@ import * as prettier from 'prettier/standalone';
 import * as prettierPluginBabel from 'prettier/plugins/babel';
 import * as prettierPluginEstree from 'prettier/plugins/estree';
 
-import {OctokitUtil} from './octokit';
+import * as octokitUtil from './octokit';
 import {InputLocations} from 'ccmoddb/build/src/types';
 
-async function prettierJson(obj: any): Promise<string> {
+async function prettierJson(obj: object): Promise<string> {
     return await prettier.format(JSON.stringify(obj), {
         parser: 'json',
         plugins: [prettierPluginBabel, prettierPluginEstree],
@@ -39,7 +39,8 @@ async function checkUrlFileType(url: string): Promise<string | undefined> {
         const response = await fetch(url, {method: 'HEAD'});
         const contentType = response.headers.get('content-type');
         return contentType?.split(';')[0];
-    } catch (error) {}
+    } catch (_) {}
+    return undefined;
 }
 
 function addOrUpdateUrl(inputs: InputLocations, url: string, source: string): {status: 'pushed' | 'changed' | 'sameUrl'; index: number} {
@@ -49,7 +50,7 @@ function addOrUpdateUrl(inputs: InputLocations, url: string, source: string): {s
         const input = inputs[i];
         if (input.url.startsWith(repoUrl)) {
             const status = inputs[i].url == obj.url ? 'sameUrl' : 'changed';
-            obj.source = source || obj.source
+            obj.source = source || obj.source;
             inputs[i] = obj;
             return {status, index: i};
         }
@@ -63,7 +64,7 @@ const botBranchPrefix = 'ccbot/';
 const inputLocationsPath = 'input-locations.json';
 const inputLocationsOldPath = 'input-locations.old.json';
 
-async function createPr(url: string, author: string, branch: string, source: string) {
+async function createPr(url: string, author: string, branch: string, source: string): Promise<string> {
     if (!url.startsWith('https://github.com/') || !(url.endsWith('.zip') || url.endsWith('.ccmod'))) {
         return 'Invalid url :(';
     }
@@ -74,13 +75,13 @@ async function createPr(url: string, author: string, branch: string, source: str
     }
 
     try {
-        const branches: string[] = (await OctokitUtil.getBranchList()).filter(name => name.startsWith(botBranchPrefix));
+        const branches: string[] = (await octokitUtil.getBranchList()).filter(name => name.startsWith(botBranchPrefix));
         const branchIds: number[] = branches.map(name => name.substring(botBranchPrefix.length)).map(Number);
         const maxBranchId: number = branchIds.reduce((acc, v) => (v > acc ? v : acc), -1);
-        const newBranchName: string = `${botBranchPrefix}${maxBranchId + 1}`;
+        const newBranchName = `${botBranchPrefix}${maxBranchId + 1}`;
 
-        await OctokitUtil.createBranch(branch, newBranchName);
-        const inputLocationsStr = await OctokitUtil.fetchFile(branch, inputLocationsPath);
+        await octokitUtil.createBranch(branch, newBranchName);
+        const inputLocationsStr = await octokitUtil.fetchFile(branch, inputLocationsPath);
         const inputLocationsJson: InputLocations = JSON.parse(inputLocationsStr);
 
         const {status, index} = addOrUpdateUrl(inputLocationsJson, url, source);
@@ -100,18 +101,20 @@ async function createPr(url: string, author: string, branch: string, source: str
         }
 
         const rawJson = await prettierJson(toCommit.json);
-        await OctokitUtil.commitFile(newBranchName, toCommit.path, rawJson, `CCBot ${branch}: ${newBranchName}`);
+        await octokitUtil.commitFile(newBranchName, toCommit.path, rawJson, `CCBot ${branch}: ${newBranchName}`);
 
-        const prUrl = await OctokitUtil.createPullRequest(branch, newBranchName, `CCBot ${branch}: ${newBranchName}`, `Submitted by: <br>${author}`);
+        const prUrl = await octokitUtil.createPullRequest(branch, newBranchName, `CCBot ${branch}: ${newBranchName}`, `Submitted by: <br>${author}`);
         return `PR submitted!\n${prUrl}`;
     } catch (err) {
-        console.log(err);
-        return err;
+        return err as string;
     }
 }
 
 export default class ModsPrCommand extends CCBotCommand {
-    public constructor(client: CCBot, public publishChannelId: string[] | undefined) {
+    public constructor(
+        client: CCBot,
+        public publishChannelId: string[] | undefined
+    ) {
         const opt = {
             name: 'publish-mod',
             description: 'Publish or update a mod to CCModDB, a central mod repository.',
@@ -146,7 +149,7 @@ export default class ModsPrCommand extends CCBotCommand {
         if (this.publishChannelId && !this.publishChannelId.includes(message.channel.id)) {
             return await message.say(`This command is only allowed in <#${this.publishChannelId}>`);
         }
-        if (!OctokitUtil.isInited()) return await message.say('Not configured to be used here!');
+        if (!octokitUtil.isInited()) return await message.say('Not configured to be used here!');
 
         if (args.branch != stableBranch && args.branch != testingBranch) {
             return message.say('Invalid branch!', {});

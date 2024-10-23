@@ -58,7 +58,7 @@ export class ModDatabaseEntity extends CCModDBViewerEntity<PackageDB> {
         for (const id in dbData) {
             const pkg = dbData[id];
             const {metadataCCMod: metadata} = pkg;
-            if (!metadata) throw `Mod: ${id} has to have a ccmod.json, duno how this happended`;
+            if (!metadata) throw new Error(`Mod: ${id} has to have a ccmod.json, duno how this happended`);
 
             if (metadata.tags && metadata.tags.some(tag => tag == 'base' || tag == 'externaltool')) continue;
 
