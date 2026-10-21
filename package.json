@@ -17,7 +17,7 @@
     "@types/bun": "^1.4.3",
     "@types/node": "^22.20.5",
     "@types/ws": "^8.5.3",
-    "ccmoddb": "github:CCDirectLink/CCModDB#0a8802d2f60ac892b3da493fcd206a2daeec1c69",
+    "ccmoddb": "github:CCDirectLink/CCModDB",
     "nodemon": "^2.0.15",
     "typescript": "^7.0.2"
   },
@@ -26,7 +26,7 @@
     "bufferutil": "^4.0.3",
     "discord-api-types": "^0.38.57",
     "discord.js": "^14.27.0",
-    "discord.js-commando": "github:Pixoll/pixoll-commando#5d21470d3ceb4fc687ec4edb9e946c9472a49cd9",
+    "discord.js-commando": "github:Pixoll/pixoll-commando",
     "prettier": "^3.3.3",
     "utf-8-validate": "^5.0.4",
     "zlib-sync": "^0.1.9"

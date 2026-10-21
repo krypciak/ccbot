@@ -1,0 +1,5 @@
+# The current head of discord.js-commando pins discord.js to an exact
+# version, which would install a second copy of discord.js next to the
+# one this project uses. The two copies have incompatible types.
+overrides:
+  discord.js: ^14.27.0
