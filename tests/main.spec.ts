@@ -1,27 +1,29 @@
-import { expect } from 'chai';
+import { describe, expect, it } from 'bun:test';
 import DynamicDataManager from '../src/dynamic-data';
 import {VM, runFormatInternal} from '../src/formatter/core';
 import {installBasic} from '../src/formatter/lib-basic';
 
 describe('DynamicDataManager', (): void => {
     const ddm: DynamicDataManager = new DynamicDataManager();
-    it('should have a well-formed JSON command set', (): void => {
+    it('should have a well-formed JSON command set', async (): Promise<void> => {
+        await ddm.initialLoad;
         // Type-check everything.
-        expect(ddm.commands.data.constructor).to.equal(Object);
+        expect(ddm.commands.data.constructor).toBe(Object);
         for (const group in ddm.commands.data) {
             const seen: {[name: string]: true} = {};
-            expect(group.constructor).to.equal(String);
-            expect(ddm.commands.data[group].constructor).to.equal(Object);
+            expect(group.constructor).toBe(String);
+            expect(ddm.commands.data[group].constructor).toBe(Object);
             for (const name in ddm.commands.data[group]) {
-                expect(seen).to.not.haveOwnProperty(name);
+                expect(seen).not.toHaveProperty(name);
                 seen[name] = true;
-                expect(name.constructor).to.equal(String);
+                expect(name.constructor).toBe(String);
                 const cmd = ddm.commands.data[group][name];
-                expect(cmd.constructor).to.equal(Object);
+                expect(cmd.constructor).toBe(Object);
             }
         }
     });
     it('should have format strings that parse correctly', async (): Promise<void> => {
+        await ddm.initialLoad;
         for (const group in ddm.commands.data) {
             for (const name in ddm.commands.data[group]) {
                 const cmd = ddm.commands.data[group][name];
@@ -39,15 +41,16 @@ describe('DynamicDataManager', (): void => {
             }
         }
     });
-    it('should work around the Discord broken image embeds bug', (): void => {
+    it('should work around the Discord broken image embeds bug', async (): Promise<void> => {
+        await ddm.initialLoad;
         for (const group in ddm.commands.data) {
             for (const name in ddm.commands.data[group]) {
                 const cmd = ddm.commands.data[group][name];
                 if (cmd.embed) {
                     if (cmd.embed.image) {
                         // It doesn't necessarily have to match (width/height override removal)
-                        expect(cmd.embed).to.haveOwnProperty('title');
-                        expect(cmd.embed).to.haveOwnProperty('url');
+                        expect(cmd.embed).toHaveProperty('title');
+                        expect(cmd.embed).toHaveProperty('url');
                     }
                 }
             }
@@ -58,7 +61,7 @@ describe('DynamicDataManager', (): void => {
 describe('Hello function', (): void => {
     it('should return hello world', (): void => {
         const result = 'Hello world!';
-        expect(result).to.equal('Hello world!');
+        expect(result).toBe('Hello world!');
     });
 });
 

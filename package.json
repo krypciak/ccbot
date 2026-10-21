@@ -11,18 +11,14 @@
     "watch": "tsc --watch",
     "start": "\"$NODE\" --inspect dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
-    "test": "mocha --require tsx/cjs tests/**/*.spec.ts"
+    "test": "bun test"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.15",
-    "@types/mocha": "^10.0.9",
+    "@types/bun": "^1.4.3",
     "@types/node": "^22.20.5",
     "@types/ws": "^8.5.3",
     "ccmoddb": "github:CCDirectLink/CCModDB#733650957c04ef72de6da8f8f47772e5b3fc8215",
-    "chai": "^4.3.0",
-    "mocha": "^11.8.0",
     "nodemon": "^2.0.15",
-    "tsx": "^4.19.2",
     "typescript": "^7.0.2"
   },
   "dependencies": {

@@ -4,6 +4,6 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",
-    "types": ["node", "mocha"]
+    "types": ["node", "bun"]
   }
 }

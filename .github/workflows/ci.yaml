@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: '19.x'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - run: npm i -g pnpm
 
       - name: Get pnpm store directory
