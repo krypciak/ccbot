@@ -1,5 +1,15 @@
+allowBuilds:
+  bufferutil: true
+  bun: true
+  utf-8-validate: true
 # The current head of discord.js-commando pins discord.js to an exact
 # version, which would install a second copy of discord.js next to the
 # one this project uses. The two copies have incompatible types.
 overrides:
   discord.js: ^14.27.0
+  # discord.js-commando depends on better-sqlite3 8.3.0, which predates
+  # Node 22 and cannot be compiled against modern V8 headers (Node 26
+  # requires C++20 and removed several APIs the 8.x sources use). v13
+  # ships prebuilt Node-API binaries inside the package, so it needs no
+  # build step at all and works on every current Node release.
+  better-sqlite3: ^13.0.3
