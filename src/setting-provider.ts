@@ -118,7 +118,6 @@ class CCBotSettingProvider extends SaneSettingProvider {
         await super.destroy();
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public get(guild: discord.Guild | string, key: string, def?: any): any {
         const id: string = commando.SettingProvider.getGuildID(guild);
         const guildObj = this.data.data[id];
@@ -129,7 +128,6 @@ class CCBotSettingProvider extends SaneSettingProvider {
         return guildObj[key];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public async set(guild: discord.Guild | string, key: string, val: any): Promise<any> {
         const id: string = commando.SettingProvider.getGuildID(guild);
         await this.data.modify((t: structures.GuildIndex) => {
@@ -139,7 +137,6 @@ class CCBotSettingProvider extends SaneSettingProvider {
         return val;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public async remove(guild: discord.Guild | string, key: string): Promise<any> {
         const value = this.get(guild, key);
         const id: string = commando.SettingProvider.getGuildID(guild);

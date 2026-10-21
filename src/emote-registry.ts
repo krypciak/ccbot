@@ -18,7 +18,7 @@ import * as commando from 'discord.js-commando';
 import {CCBot} from './ccbot';
 import {emoteSafe, naturalComparison, nsfwGuild, silence} from './utils';
 import {EmoteRegistryDump} from './data/structures';
-import {RawEmojiData} from 'discord.js/typings/rawDataTypes'; // eslint-disable-line node/no-missing-import
+import {RawEmojiData} from 'discord.js/typings/rawDataTypes';
 
 /// Determine if a bit of text looks like an emoji.
 /// Notably, it doesn't actually have to *be* an emoji,

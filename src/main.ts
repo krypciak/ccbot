@@ -24,12 +24,10 @@ import * as octokitUtil from './commands/ccmoddb-pr/octokit';
 
 declare global {
     // Using var declarations is the only way to get away from weird hacks.
-    /* eslint-disable no-var */
     var ccbot: CCBotMain;
     var client: CCBot;
     var discord: typeof import('discord.js');
     var commando: typeof import('discord.js-commando');
-    /* eslint-enable no-var */
 }
 
 /// The one and only main class, that initializes everything.
@@ -73,7 +71,7 @@ class CCBotMain {
                 this.startDataCollector();
             } catch (e) {
                 console.error(e);
-                process.exit(1); // eslint-disable-line no-process-exit
+                process.exit(1);
             }
         }
         kickstart();
@@ -198,7 +196,7 @@ async function shutdown(): Promise<void> {
     } catch (e) {
         console.error('During shutdown:', e);
     }
-    process.exit(0); // eslint-disable-line no-process-exit
+    process.exit(0);
 }
 
 process.on('exit', shutdown);

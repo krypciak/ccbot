@@ -21,7 +21,7 @@ import * as url from 'url';
 
 // dmitmel: Needed for running tests because of Commando extensions
 import './ccbot';
-import { CCBot } from './ccbot'; // eslint-disable-line
+import { CCBot } from './ccbot';
 
 /// Alias that's simpler to access
 export const mdEsc = discord.escapeMarkdown;
@@ -159,7 +159,7 @@ export function findMemberByRef(t: discord.Guild | undefined | null, ref: string
 
 // An integer parser that knows when to abort
 export function safeParseInt(a: string): number {
-    const res = parseInt(a); // eslint-disable-line radix
+    const res = parseInt(a);
     if (!Number.isSafeInteger(res))
         throw new Error(`Number ${a} is not a sane integer`);
     if (res.toString() !== a)

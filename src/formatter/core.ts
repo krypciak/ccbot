@@ -20,7 +20,7 @@ const vmEvalTime = 8;
 const vmMaxAnythingLength = 2048;
 
 export interface Value {
-    constructor: Function; // eslint-disable-line @typescript-eslint/ban-types
+    constructor: Function;
 }
 
 export const trueValue = 'true';

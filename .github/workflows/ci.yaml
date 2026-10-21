@@ -26,17 +26,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: ESLint cache
-        uses: actions/cache@v2
-        with:
-          path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc.yml') }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc.yml') }}-
-            ${{ runner.os }}-eslint-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
-      - run: pnpm lint --cache

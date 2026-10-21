@@ -53,7 +53,6 @@ function initCCBotCommandoMessage(
     /// This modified version cleans up after whatever was happening before.
     self['editResponse'] = async function editResponse(
         reply: commando.CommandoMessage | commando.CommandoMessage[],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         b: any
     ): Promise<commando.CommandoMessage | commando.CommandoMessage[]> {
         if (reply) {
@@ -117,7 +116,7 @@ export default class CCBotCommandDispatcher extends commando.CommandDispatcher {
         } else if (text.startsWith(commandPrefixMention2)) {
             text = text.substring(commandPrefixMention2.length);
         } else if (!message.guild) {
-            text = text; // eslint-disable-line no-self-assign
+            text = text;
         } else {
             return null;
         }

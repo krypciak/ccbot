@@ -49,7 +49,6 @@ export function getUserDeniedRoles(client: CCBot<boolean>, member: discord.Guild
         denial.push(s);
     for (const s of convertRoleGroup(client, member.guild, `allow-user-${member.id}`)) {
         let idx: number;
-        // eslint-disable-next-line no-cond-assign
         while ((idx = denial.indexOf(s)) != -1)
             denial.splice(idx, 1);
     }
