@@ -17,7 +17,7 @@
     "@types/bun": "^1.4.3",
     "@types/node": "^22.20.5",
     "@types/ws": "^8.5.3",
-    "ccmoddb": "github:CCDirectLink/CCModDB#733650957c04ef72de6da8f8f47772e5b3fc8215",
+    "ccmoddb": "github:CCDirectLink/CCModDB#0a8802d2f60ac892b3da493fcd206a2daeec1c69",
     "nodemon": "^2.0.15",
     "typescript": "^7.0.2"
   },
