@@ -17,6 +17,8 @@ import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
 import {emoteSafe, randomArrayElement} from '../utils';
 import {userAwareGetEmote} from '../entities/user-datablock';
+import {getChannel, respond} from '../command-context';
+import {integerOption, slashInfo, stringOption} from '../slash-options';
 
 // Scientific reasons for Lea to have to exist.
 const tooTinyFailReasons = [
@@ -43,53 +45,48 @@ const tooHighFailReasons = [
 export default class ArmyCommand extends CCBotCommand {
     public readonly emote: string | undefined;
     public constructor(client: CCBot, group: string, name: string, emote?: string) {
-        const args: commando.ArgumentInfo[] = [
-            {
-                key: 'width',
-                prompt: 'The breadth of the army? (A number.)',
-                type: 'integer'
-            },
-            {
-                key: 'height',
-                prompt: 'The height of the army? (A number; or not present, in which case width is put here to create a square)',
-                type: 'integer',
-                default: 0
-            }
+        const options = [
+            integerOption('width', 'The breadth of the army? (A number.)'),
+            integerOption('height', 'The height of the army? (Defaults to the width.)', false)
         ];
         if (!emote) {
-            args.unshift({
-                key: 'emote',
-                prompt: 'The soldiers of the army? (An emote.)',
-                type: 'string'
-            })
+            options.unshift(stringOption('emote', 'The soldiers of the army? (An emote.)'));
         }
         const opt: commando.CommandInfo = {
-            name: `-${group} ${name}`,
+            name,
             description: `summons ${emote ? `the ${emote}` : 'an'} army`,
             group,
-            memberName: name,
-            args
+            memberName: name
         };
-        super(client, opt);
+        super(client, opt, slashInfo(options));
         this.emote = emote;
     }
 
-    public async run(message: commando.CommandoMessage, args: {width: number; height: number; emote?: string}): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {width: number; height?: number; emote?: string}): Promise<void> {
         // Awkward, but solves the issue.
-        if (args.height === 0)
-            args.height = args.width;
+        let height: number = args.height ?? 0;
+        if (height === 0)
+            height = args.width;
 
-        const emoteUse = await userAwareGetEmote(this.client, message.author, message.guild, (this.emote || args.emote)!);
-        if (!emoteUse || !emoteSafe(emoteUse, message.channel))
-            return message.say('they appear to have been transformed into something unsuitable for this channel');
+        const emoteUse = await userAwareGetEmote(this.client, interaction.author, interaction.guild, (this.emote || args.emote)!);
+        if (!emoteUse || !emoteSafe(emoteUse, await getChannel(interaction))) {
+            await respond(interaction, 'they appear to have been transformed into something unsuitable for this channel');
+            return;
+        }
 
         // Initial safety checks
-        if ((args.width < 1) || (args.height < 1))
-            return message.say(`the ${emoteUse}${randomArrayElement(tooTinyFailReasons)}.`);
-        if (args.width > 20)
-            return message.say(`the ${emoteUse}${randomArrayElement(tooWideFailReasons)}.`);
-        if (args.height > 10)
-            return message.say(`the ${emoteUse}${randomArrayElement(tooHighFailReasons)}.`);
+        if ((args.width < 1) || (height < 1)) {
+            await respond(interaction, `the ${emoteUse}${randomArrayElement(tooTinyFailReasons)}.`);
+            return;
+        }
+        if (args.width > 20) {
+            await respond(interaction, `the ${emoteUse}${randomArrayElement(tooWideFailReasons)}.`);
+            return;
+        }
+        if (height > 10) {
+            await respond(interaction, `the ${emoteUse}${randomArrayElement(tooHighFailReasons)}.`);
+            return;
+        }
 
         // Build the army
         const lines = [
@@ -97,15 +94,17 @@ export default class ArmyCommand extends CCBotCommand {
         ];
 
         const line = emoteUse.toString().repeat(args.width);
-        for (let i = 0; i < args.height; i++)
+        for (let i = 0; i < height; i++)
             lines.push(line);
 
         // More safety checks
         const text = lines.join('\n');
-        if (text.length > 2000)
-            return message.say('the army may be too large!');
+        if (text.length > 2000) {
+            await respond(interaction, 'the army may be too large!');
+            return;
+        }
 
         // Send the army
-        return message.say(text);
+        await respond(interaction, text);
     }
 }

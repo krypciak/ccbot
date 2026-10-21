@@ -15,22 +15,30 @@
 
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
+import {respond} from '../command-context';
+import {slashInfo} from '../slash-options';
 
 /// Reloads the JSON commands.
 export default class ReloadCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt = {
-            name: '-commands reload-json',
+            name: 'reload-json',
             description: 'Reloads all JSON commands. Only usable by bot owner.',
             group: 'commands',
             memberName: 'reload-json',
             ownerOnly: true
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
     }
 
-    public run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
-        this.client.dynamicData.commands.reload();
-        return message.say('[nods] <:leaNOD:400777547991744523>');
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
+        // NOTE: The reload has to be awaited, or the commands would be
+        //  registered with Discord before they are actually reloaded.
+        await this.client.dynamicData.commands.reload();
+        // The JSON commands may have changed, so the application commands must be updated.
+        // NOTE: The registration method is protected in the library, but element access
+        //  is a way to get to it without changing the library.
+        await this.client.registry['registerApplicationCommands']();
+        await respond(interaction, '[nods] <:leaNOD:400777547991744523>');
     }
 }

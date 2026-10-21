@@ -19,6 +19,8 @@ import {CCBot, CCBotCommand} from '../ccbot';
 import {convertRoleGroup, convertRoles, getUserDeniedRoles} from '../role-utils';
 import {doneResponse} from '../utils';
 import {outputElements} from '../entities/page-switcher';
+import {argList, respond} from '../command-context';
+import {slashInfo, stringOption} from '../slash-options';
 
 /// Gets inclusivity/exclusivity group involvement given a target and a role ID list.
 function getInvolvement(client: CCBot, guild: discord.Guild, groupType: string, involvedIDs: string[]): string[] {
@@ -122,34 +124,30 @@ export async function runRoleCommand(client: CCBot<boolean>, member: discord.Gui
     return doneResponse();
 }
 
-async function genericARRunner(message: commando.CommandoMessage, args: {roles: string[]}, add: boolean): Promise<commando.CommandoMessageResponse> {
-    if (!message.member)
-        return message.say('There aren\'t roles in a DM channel.');
-    return message.say(await runRoleCommand(message.client as CCBot<true>, message.member, args.roles, add));
+async function genericARRunner(interaction: commando.CommandoInteraction, args: {roles: string}, add: boolean): Promise<void> {
+    if (!interaction.member) {
+        await respond(interaction, 'There aren\'t roles in a DM channel.');
+        return;
+    }
+    await respond(interaction, await runRoleCommand(interaction.client as CCBot<true>, interaction.member, argList(args.roles), add));
 }
 
 /// A command for someone to add roles to themselves using the bot.
 export class RolesAddCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
-            name: '-roles add',
+            name: 'role-add',
             description: 'Gives you roles.',
             group: 'roles',
-            memberName: 'add',
-            args: [
-                {
-                    key: 'roles',
-                    prompt: 'Roles to add?',
-                    type: 'string',
-                    infinite: true
-                }
-            ]
+            memberName: 'add'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('roles', 'Roles to add?')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {roles: string[]}): Promise<commando.CommandoMessageResponse> {
-        return genericARRunner(message, args, true);
+    public async run(interaction: commando.CommandoInteraction, args: {roles: string}): Promise<void> {
+        await genericARRunner(interaction, args, true);
     }
 }
 
@@ -157,24 +155,18 @@ export class RolesAddCommand extends CCBotCommand {
 export class RolesRmCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
-            name: '-roles rm',
+            name: 'role-rm',
             description: 'Removes roles from you.',
             group: 'roles',
-            memberName: 'rm',
-            args: [
-                {
-                    key: 'roles',
-                    prompt: 'Roles to remove?',
-                    type: 'string',
-                    infinite: true
-                }
-            ]
+            memberName: 'rm'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('roles', 'Roles to remove?')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {roles: string[]}): Promise<commando.CommandoMessageResponse> {
-        return genericARRunner(message, args, false);
+    public async run(interaction: commando.CommandoInteraction, args: {roles: string}): Promise<void> {
+        await genericARRunner(interaction, args, false);
     }
 }
 
@@ -183,35 +175,38 @@ export class RolesRmCommand extends CCBotCommand {
 export class RolesListCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt = {
-            name: '-roles get',
+            name: 'role-list',
             description: 'Lists all roles.',
             group: 'roles',
             memberName: 'get'
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
-        if (!message.guild)
-            return await message.say('You are floating in a void, free, unburdened by any force, not even gravity.\nThus, your roles are what you will them to be.');
-        const whitelist = getWhitelist(this.client, message.guild);
-        const autorole = convertRoleGroup(this.client, message.guild, 'auto-role');
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
+        if (!interaction.guild) {
+            await respond(interaction, 'You are floating in a void, free, unburdened by any force, not even gravity.\nThus, your roles are what you will them to be.');
+            return;
+        }
+        const guild = interaction.guild;
+        const whitelist = getWhitelist(this.client, guild);
+        const autorole = convertRoleGroup(this.client, guild, 'auto-role');
         const linesInteresting: string[] = [];
         const lines: string[] = [];
-        for (const role of message.guild.roles.cache.values()) {
+        for (const role of guild.roles.cache.values()) {
             const caps: string[] = [];
             if (autorole.includes(role.id))
                 caps.push('automatic');
             if (whitelist.includes(role.id))
-                caps.push(`grantable (\`-roles add/rm ${role.name}\`)`);
-            const inccaps: string[] = getInvolvement(this.client, message.guild, 'inclusive', [role.id]);
+                caps.push(`grantable (\`/role-add /role-rm ${role.name}\`)`);
+            const inccaps: string[] = getInvolvement(this.client, guild, 'inclusive', [role.id]);
             if (inccaps.length != 0)
                 caps.push(`inclusive (${inccaps.join()})`);
-            const exccaps: string[] = getInvolvement(this.client, message.guild, 'exclusive', [role.id]);
+            const exccaps: string[] = getInvolvement(this.client, guild, 'exclusive', [role.id]);
             if (exccaps.length != 0)
                 caps.push(`exclusive (${exccaps.join()})`);
             (caps.length > 0 ? linesInteresting : lines).push(`\`${role.name}\` ${caps.join()}`)
         }
-        return await outputElements(this.client, message, linesInteresting.concat(lines), 10, 2000);
+        await outputElements(this.client, interaction, linesInteresting.concat(lines), 10, 2000);
     }
 }

@@ -58,6 +58,9 @@ export abstract class CCBot<Ready extends boolean = boolean> extends commando.Co
         this.on('raw', (event: discord.GatewayDispatchPayload): void => {
             this.handleRawEvent(event);
         });
+        this.on('interactionCreate', (interaction: commando.CommandoifiedInteraction): void => {
+            this.handleButtonInteraction(interaction);
+        });
         const callbackUpdateGER = (): void => {
             this.emoteRegistry.updateGlobalEmoteRegistry();
         };
@@ -81,6 +84,23 @@ export abstract class CCBot<Ready extends boolean = boolean> extends commando.Co
         await super.destroy();
         await this.dynamicData.destroy();
         await this.entities.destroy();
+    }
+
+    /// Routes button presses to the entity that owns the button's message.
+    /// This is how the page switcher is driven.
+    private handleButtonInteraction(interaction: commando.CommandoifiedInteraction): void {
+        if (!interaction.isButton())
+            return;
+        // Buttons that belong to a message are always attached to a message.
+        const message = interaction.message;
+        if (!message)
+            return;
+        const entity = this.entities.getEntity(`message-${message.id}`);
+        if (!entity)
+            return;
+        // NOTE: The library's button interaction type isn't assignable to discord.js's,
+        //  even though it is the same thing.
+        entity.buttonInteractionTouched(interaction as unknown as discord.ButtonInteraction);
     }
 
     /// You really, really shouldn't have to add something here.
@@ -134,9 +154,9 @@ export abstract class CCBot<Ready extends boolean = boolean> extends commando.Co
 /// *All commands in the project should be based off of this class, directly or indirectly.*
 /// A version of commando.Command with CCBot taking the place of the client field.
 export abstract class CCBotCommand extends commando.Command {
-    public client!: CCBot;
-    public constructor(client: CCBot, options: commando.CommandInfo) {
-        super(client, options);
+    declare public client: CCBot;
+    public constructor(client: CCBot, options: commando.CommandInfo, slashInfo?: commando.SlashCommandInfo) {
+        super(client, options, slashInfo);
         // Add default throttling options. The source of these might need to be put elsewhere.
         // Note though that a live-updatable mechanism would need to rely on a by-reference scheme,
         //  to avoid having to keep track of which commands have explicit throttles.
@@ -149,13 +169,13 @@ export abstract class CCBotCommand extends commando.Command {
     }
 
     public async onBlock(
-        message: commando.CommandoMessage,
+        context: commando.CommandContext,
         reason: commando.CommandBlockReason,
         data?: commando.CommandBlockData
     ): Promise<discord.Message | null> {
         if (reason === 'throttling')
             return null;
-        return super.onBlock(message, reason, data);
+        return super.onBlock(context, reason, data);
     }
 }
 
@@ -182,5 +202,12 @@ export class CCBotEntity extends Entity<CCBot> {
     /// This thus basically turns entities with those IDs into 'message managers'.
     public emoteReactionTouched(_emote: discord.Emoji, _user: discord.User, _add: boolean): void {
         // All 3 arguments are not used on purpose.
+    }
+
+    /// For those entities with ID 'message-{id}', this callback receives button presses
+    /// on the buttons of that message.
+    /// This is how the page switcher is driven.
+    public buttonInteractionTouched(_interaction: discord.ButtonInteraction): void {
+        // Not used on purpose.
     }
 }

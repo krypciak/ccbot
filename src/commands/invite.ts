@@ -16,6 +16,8 @@
 import * as discord from 'discord.js';
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
+import {respond} from '../command-context';
+import {slashInfo} from '../slash-options';
 
 export default class InviteCommand extends CCBotCommand {
     public constructor(client: CCBot) {
@@ -25,16 +27,16 @@ export default class InviteCommand extends CCBotCommand {
             group: 'general',
             memberName: 'invite'
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
         // https://github.com/discordjs/Commando/blob/v0.12.0/src/commands/base.js#L346-L357
         const {owners} = this.client;
 		const ownerList = owners ? owners.map((usr, i) => {
 			const or = i === owners.length - 1 && owners.length > 1 ? 'or ' : '';
 			return `${or}${discord.escapeMarkdown(usr.username)}#${usr.discriminator}`;
 		}).join(owners.length > 2 ? ', ' : ' ') : '';
-        return await message.say(`Please contact ${ownerList || 'the bot owner'} and tell that you would like to add the bot to your server.`);
+        await respond(interaction, `Please contact ${ownerList || 'the bot owner'} and tell that you would like to add the bot to your server.`);
     }
 }

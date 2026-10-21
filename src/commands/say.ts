@@ -16,9 +16,10 @@
 import * as discord from 'discord.js';
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
-import {silence} from '../utils';
 import {VM, VMContext, runFormat} from '../formatter';
 import {getUserDatablock} from '../entities/user-datablock';
+import {getChannel, respond} from '../command-context';
+import {slashInfo, stringOption} from '../slash-options';
 
 export interface SayResult {
     error: boolean;
@@ -61,48 +62,44 @@ export default class SayCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
             name: 'say',
-            description: 'Has the bot say something. Please see the Format Syntax Guide (.cc -formatter help)',
+            description: 'Has the bot say something. Please see the format syntax guide.',
             group: 'general',
             memberName: 'say',
-            args: [
-                {
-                    key: 'text',
-                    prompt: 'The text to say.',
-                    type: 'string'
-                }
-            ],
             throttling: {
                 usages: 5,
                 duration: 60
             }
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('text', 'The text to say.')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {text: string}): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {text: string}): Promise<void> {
         // Bootstrap?
-        const {bootstrap} = (await getUserDatablock(this.client, message.author)).get();
+        const {bootstrap} = (await getUserDatablock(this.client, interaction.author)).get();
         if (bootstrap && (typeof bootstrap === 'string'))
             args.text = bootstrap + args.text;
         const sayResult = await say(args.text, {
             client: this.client,
-            channel: message.channel,
-            cause: message.author,
-            writer: message.author,
+            channel: await getChannel(interaction),
+            cause: interaction.author,
+            writer: interaction.author,
             protectedContent: false,
             args: []
         });
         if (sayResult) {
             // It's important that this *does not* use global in place of the setting in the guild if none exists.
             // By per-guild default say should always have a header.
-            const headerless = sayResult.error || this.client.provider?.get(message.guild || 'global', 'headerless-say', false);
+            const headerless = sayResult.error || this.client.provider?.get(interaction.guild || 'global', 'headerless-say', false);
+            const embedOptions = sayResult.opts.embeds ? {embeds: sayResult.opts.embeds} : {};
             if (!headerless) {
-                if (message.deletable)
-                    silence(message.delete());
-                return await message.say(`*${message.author.toString()} says:*\n${sayResult.text}`, sayResult.opts);
+                await respond(interaction, `*${interaction.author.toString()} says:*\n${sayResult.text}`, embedOptions);
+                return;
             }
-            return await message.say(sayResult.text, sayResult.opts);
+            await respond(interaction, sayResult.text, embedOptions);
+            return;
         }
-        return [];
+        await respond(interaction, 'Nothing to say.');
     }
 }

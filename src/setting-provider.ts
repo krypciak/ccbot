@@ -21,7 +21,7 @@ import {DynamicData} from './dynamic-data';
 /// The setting bindings are *in the provider* for some reason.
 /// This fixes SettingProvider to handle this properly.
 export abstract class SaneSettingProvider extends commando.SettingProvider<structures.SettingsStructure> {
-    public client!: commando.CommandoClient;
+    declare public client: commando.CommandoClient;
 
     private listenerCommandPrefixChange: (guild?: commando.CommandoGuild | null, prefix?: string | null) => void;
     private listenerCommandStatusChange: (guild: discord.Guild | null, group: commando.Command, enabled: boolean) => void;
@@ -90,6 +90,9 @@ export abstract class SaneSettingProvider extends commando.SettingProvider<struc
     }
 
     public async destroy(): Promise<void> {
+        // The provider may not have been initialized yet.
+        if (!this.client)
+            return;
         this.client.removeListener('commandPrefixChange', this.listenerCommandPrefixChange);
         this.client.removeListener('commandStatusChange', this.listenerCommandStatusChange);
         this.client.removeListener('groupStatusChange', this.listenerGroupStatusChange);

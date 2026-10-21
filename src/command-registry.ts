@@ -15,15 +15,18 @@
 
 import * as commando from 'discord.js-commando';
 import JSONCommand from './commands/json';
-import HelpCommand from './commands/help';
 import { CCBot } from './ccbot';
+import {resolveSlashName} from './slash-options';
+
+/// JSON commands that make no sense as slash commands.
+const skippedJSONCommands = ['unknown-command'];
 
 /// A modified version of the CommandRegistry.
 ///
 /// JSON commands are read from the 'commands.json' dynamicData file.
 /// Their structure is defined in: data/structures.js
 export default class CCBotCommandRegistry extends commando.CommandoRegistry {
-    public readonly client!: CCBot;
+    declare public readonly client: CCBot;
     private allJSONCommands: commando.Command[];
 
     public constructor(c: CCBot) {
@@ -35,7 +38,10 @@ export default class CCBotCommandRegistry extends commando.CommandoRegistry {
         });
     }
     public registerDefaults(): this {
-        super.registerDefaults();
+        // NOTE: The default prefix commands are not registered.
+        //  This bot only uses slash commands.
+        this.registerDefaultTypes();
+        this.registerDefaultGroups();
         this.loadJSONCommands();
         return this;
     }
@@ -46,12 +52,11 @@ export default class CCBotCommandRegistry extends commando.CommandoRegistry {
             if (!this.groups.has(g))
                 this.registerGroup({ id: g });
 
-            const gcmd: commando.Command = new HelpCommand(this.client, g);
-            this.allJSONCommands.push(gcmd);
-            this.registerCommand(gcmd);
-
             for (const k in commands[g]) {
-                const cmd: commando.Command = new JSONCommand(this.client, g, k, commands[g][k]);
+                if (skippedJSONCommands.includes(k.toLowerCase()))
+                    continue;
+                const name = resolveSlashName(k, g, (candidate: string): boolean => this.commands.has(candidate));
+                const cmd: commando.Command = new JSONCommand(this.client, g, name, commands[g][k]);
                 this.allJSONCommands.push(cmd);
                 this.registerCommand(cmd);
             }

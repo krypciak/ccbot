@@ -15,6 +15,8 @@
 
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../../ccbot';
+import {respond} from '../../command-context';
+import {slashInfo, stringOption} from '../../slash-options';
 
 import * as prettier from 'prettier/standalone';
 import * as prettierPluginBabel from 'prettier/plugins/babel';
@@ -145,47 +147,36 @@ export default class ModsPrCommand extends CCBotCommand {
             name: 'publish-mod',
             description: 'Publish or update a mod to CCModDB, a central mod repository.',
             group: 'general',
-            memberName: 'publish-mod',
-            args: [
-                {
-                    key: 'url',
-                    prompt: 'Mod .zip or .ccmod GitHub link',
-                    type: 'string',
-                },
-                {
-                    key: 'branch',
-                    prompt: 'Target branch. Either "stable" or "testing". Use "testing" if you want to publish this mod as a pre-release.',
-                    type: 'string',
-                    default: 'stable',
-                },
-                {
-                    key: 'source',
-                    prompt: 'The relative path to the directory containing the `ccmod.json` file.',
-                    type: 'string',
-                    default: '',
-                },
-            ],
+            memberName: 'publish-mod'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('url', 'Mod .zip or .ccmod GitHub link'),
+            stringOption('branch', 'Target branch. Either "stable" or "testing".', false),
+            stringOption('source', 'The relative path to the directory containing the `ccmod.json` file.', false)
+        ]));
 
         this.publishChannelId = publishChannelId;
     }
 
-    public async run(message: commando.CommandoMessage, args: {url: string; branch: string; source: string}): Promise<commando.CommandoMessageResponse> {
-        if (this.publishChannelId && !this.publishChannelId.includes(message.channel.id)) {
-            return await message.say(`This command is only allowed in ${this.publishChannelId?.map(id => `<#${id}>`).join(', ')}`);
+    public async run(interaction: commando.CommandoInteraction, args: {url: string; branch?: string; source?: string}): Promise<void> {
+        if (this.publishChannelId && !this.publishChannelId.includes(interaction.channelId)) {
+            await respond(interaction, `This command is only allowed in ${this.publishChannelId?.map(id => `<#${id}>`).join(', ')}`);
+            return;
         }
-        if (!octokitUtil.isInited()) return await message.say('Not configured to be used here!');
+        if (!octokitUtil.isInited()) {
+            await respond(interaction, 'Not configured to be used here!');
+            return;
+        }
 
-        if (args.branch != stableBranch && args.branch != testingBranch) {
-            return message.say('Invalid branch!', {});
+        const branch = args.branch ?? stableBranch;
+        const source = args.source ?? '';
+        if (branch != stableBranch && branch != testingBranch) {
+            await respond(interaction, 'Invalid branch!');
+            return;
         }
 
-        const text = await createPr(args.url, message.author.tag, args.branch, args.source);
-        const msg = await message.say(text, {});
-        for (const m of Array.isArray(msg) ? msg : [msg]) {
-            m?.suppressEmbeds();
-        }
-        return msg;
+        const text = await createPr(args.url, interaction.author.tag, branch, source);
+        const message = await respond(interaction, text);
+        await message.suppressEmbeds();
     }
 }

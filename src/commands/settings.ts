@@ -20,6 +20,8 @@ import {doneResponse, localAdminCheck} from '../utils';
 import {getUserDatablock} from '../entities/user-datablock';
 import { SaneSettingProvider } from '../setting-provider';
 import { SettingsStructure } from '../data/structures';
+import { respond } from '../command-context';
+import { slashInfo, stringOption } from '../slash-options';
 
 // Important (i.e. non-obvious) limits
 const limitLocalCommand = 2000;
@@ -125,42 +127,42 @@ async function runLocalSettingTransaction(provider: SaneSettingProvider, context
     return null;
 }
 
-function isAuthorized(message: commando.CommandoMessage, _operation: SettingsOperation, context: SettingsContext, contextInstance: string): boolean {
+function isAuthorized(interaction: commando.CommandoInteraction, _operation: SettingsOperation, context: SettingsContext, contextInstance: string): boolean {
     // Validate instance
     if ((context == SettingsContext.Global) && (contextInstance != 'global'))
         return false;
-    if ((context == SettingsContext.Local) && (!message.client.guilds.cache.has(contextInstance)))
+    if ((context == SettingsContext.Local) && (!interaction.client.guilds.cache.has(contextInstance)))
         return false;
-    if ((context == SettingsContext.User) && (!message.client.users.cache.has(contextInstance)))
+    if ((context == SettingsContext.User) && (!interaction.client.users.cache.has(contextInstance)))
         return false;
     // Authorized?
-    if (message.client.isOwner(message.author))
+    if (interaction.client.isOwner(interaction.author))
         return true;
     if (context == SettingsContext.Local) {
-        if (!message.guild)
+        if (!interaction.guild)
             return false;
-        if (!localAdminCheck(message))
+        if (!localAdminCheck(interaction))
             return false;
-        if (contextInstance != message.guild.id)
+        if (contextInstance != interaction.guild.id)
             return false;
         return true;
     } else if (context == SettingsContext.User) {
-        return message.author.id == contextInstance;
+        return interaction.author.id == contextInstance;
     } else {
         // Also covers Global (which has no access except for owner) so do not make true by default
         return false;
     }
 }
 
-function isAuthorizedToChange(message: commando.CommandoMessage, name: string): boolean {
-    if (message.client.isOwner(message.author))
+function isAuthorizedToChange(interaction: commando.CommandoInteraction, name: string): boolean {
+    if (interaction.client.isOwner(interaction.author))
         return true;
     // Owner-only settings
     if (name === 'nsfw')
         return false;
     // ...
 
-    if (localAdminCheck(message))
+    if (localAdminCheck(interaction))
         return true;
     // Admin-only settings
     // ...
@@ -176,46 +178,41 @@ export class SettingsCommand extends CCBotCommand {
     public constructor(client: CCBot, op: SettingsOperation, target: SettingsContext) {
         const localName = `${SettingsOperation[op].toLowerCase()}-${SettingsContext[target].toLowerCase()}`;
         const opt: commando.CommandInfo<boolean, commando.ArgumentInfo[]> = {
-            name: `-util ${localName}`,
-            description: `${SettingsOperation[op]} ${SettingsContext[target].toLowerCase()} setting.`,
+            name: `settings-${localName}`,
+            description: `${SettingsOperation[op].toLowerCase()} ${SettingsContext[target].toLowerCase()} setting.`,
             group: 'util',
-            memberName: localName,
-            args: [
-                {
-                    key: 'key',
-                    prompt: 'Which setting?',
-                    type: 'string'
-                }
-            ]
+            memberName: localName
         };
+        const options = [
+            stringOption('key', 'Which setting?')
+        ];
         if (op == SettingsOperation.Set) {
-            opt.args?.push({
-                key: 'value',
-                prompt: 'What value would you like today? (JSON)',
-                type: 'string'
-            })
+            options.push(stringOption('value', 'What value would you like today? (JSON)'));
         }
-        super(client, opt);
+        super(client, opt, slashInfo(options));
         this.operation = op;
         this.context = target;
     }
 
-    public async run(message: commando.CommandoMessage, args: {key: keyof SettingsStructure; value: string}): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {key: keyof SettingsStructure; value?: string}): Promise<void> {
         let instance = '';
         if (this.context === SettingsContext.Global) {
             instance = 'global';
         } else if (this.context === SettingsContext.Local) {
-            if (message.guild) {
-                instance = message.guild.id;
+            if (interaction.guild) {
+                instance = interaction.guild.id;
             } else {
-                return message.say('No local guild.');
+                await respond(interaction, 'No local guild.');
+                return;
             }
         } else if (this.context === SettingsContext.User) {
-            instance = message.author.id;
+            instance = interaction.author.id;
         }
 
-        if (!isAuthorized(message, this.operation, this.context, instance))
-            return message.say('You aren\'t authorized to do that.');
+        if (!isAuthorized(interaction, this.operation, this.context, instance)) {
+            await respond(interaction, 'You aren\'t authorized to do that.');
+            return;
+        }
 
         let value;
         if (this.operation == SettingsOperation.Get) {
@@ -229,19 +226,25 @@ export class SettingsCommand extends CCBotCommand {
                 const dbl = await getUserDatablock(this.client, instance);
                 value = dbl.get()[args.key];
             }
-            if (value === undefined)
-                return message.say('That value does not exist.');
-            return message.say(`Done:\n\`\`\`json\n${JSON.stringify(value)}\n\`\`\``);
+            if (value === undefined) {
+                await respond(interaction, 'That value does not exist.');
+                return;
+            }
+            await respond(interaction, `Done:\n\`\`\`json\n${JSON.stringify(value)}\n\`\`\``);
+            return;
         } else {
             // Writing
-            if (!isAuthorizedToChange(message, args.key))
-                return message.say('You aren\'t authorized to change that.');
+            if (!isAuthorizedToChange(interaction, args.key)) {
+                await respond(interaction, 'You aren\'t authorized to change that.');
+                return;
+            }
 
             if (this.operation == SettingsOperation.Set) {
                 try {
-                    value = JSON.parse(args.value);
+                    value = JSON.parse(args.value!);
                 } catch (e) {
-                    return message.say(`Your JSON was incorrect:\n${e}`);
+                    await respond(interaction, `Your JSON was incorrect:\n${e}`);
+                    return;
                 }
             }
             if (this.context == SettingsContext.Global) {
@@ -250,12 +253,16 @@ export class SettingsCommand extends CCBotCommand {
                 } else {
                     await this.client.provider!.set('global', args.key, value);
                 }
-                return message.say(doneResponse());
+                await respond(interaction, doneResponse());
+                return;
             } else if (this.context == SettingsContext.Local) {
                 const guild = this.client.guilds.cache.get(instance);
-                if (!guild)
-                    return message.say('How\'d you get here, then?');
-                return message.say((await runLocalSettingTransaction(this.client.provider!, guild, args.key, value)) || doneResponse());
+                if (!guild) {
+                    await respond(interaction, 'How\'d you get here, then?');
+                    return;
+                }
+                await respond(interaction, (await runLocalSettingTransaction(this.client.provider!, guild, args.key, value)) || doneResponse());
+                return;
             } else if (this.context == SettingsContext.User) {
                 const dbl = await getUserDatablock(this.client, instance);
                 const db = dbl.get();
@@ -265,10 +272,11 @@ export class SettingsCommand extends CCBotCommand {
                     db[args.key] = value;
                 }
                 dbl.set(db);
-                return message.say(doneResponse());
+                await respond(interaction, doneResponse());
+                return;
             }
         }
-        return message.say('Unable to handle the specified request.');
+        await respond(interaction, 'Unable to handle the specified request.');
     }
 }
 
@@ -276,16 +284,16 @@ export class SettingsCommand extends CCBotCommand {
 export class ShowUserSettingsCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt = {
-            name: '-util show-user-settings',
+            name: 'show-user-settings',
             description: 'Show the entire contents of your user settings datablock.',
             group: 'util',
             memberName: 'show-user-settings'
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
-        const res = (await getUserDatablock(this.client, message.author)).content;
-        return message.say(`\`\`\`json\n${discord.cleanCodeBlockContent(res)}\n\`\`\``);
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
+        const res = (await getUserDatablock(this.client, interaction.author)).content;
+        await respond(interaction, `\`\`\`json\n${discord.cleanCodeBlockContent(res)}\n\`\`\``);
     }
 }

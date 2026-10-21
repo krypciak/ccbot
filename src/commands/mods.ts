@@ -18,22 +18,24 @@ import {CCBot, CCBotCommand} from '../ccbot';
 import {ModDatabaseEntity, ToolDatabaseEntity} from '../entities/mod-database';
 import {outputElements} from '../entities/page-switcher';
 import {LocalizedString, Page} from 'ccmoddb/build/src/types';
+import {respond} from '../command-context';
+import {slashInfo} from '../slash-options';
 
 /// Gets a list of mods.
 export class ModsToolsGetCommand extends CCBotCommand {
     public readonly tools: boolean;
     public constructor(client: CCBot, group: string, name: string, tools: boolean) {
         const opt = {
-            name: `-${group} ${name}`,
+            name,
             description: !tools ? 'Gets a list of the available mods.' : 'Gets a list of the available tools.',
             group,
             memberName: name,
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
         this.tools = tools;
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
         const entityName = !this.tools ? 'mod-database-manager' : 'tool-database-manager';
         const modDB = this.client.entities.getEntity<ModDatabaseEntity | ToolDatabaseEntity>(entityName);
         if (modDB)
@@ -68,23 +70,25 @@ export class ModsToolsGetCommand extends CCBotCommand {
                     return components.join('\n');
                 });
                 const footer = !this.tools
-                    ? '\nNote: All mods require a mod loader to work. (See `.cc installing-mods` for details.)'
+                    ? '\nNote: All mods require a mod loader to work. (See `/installing-mods` for details.)'
                     : '\nNote: Tools require their own installation procedures. Check their pages for details.';
-                return outputElements(this.client, message, mods, 25, 2000, {
+                await outputElements(this.client, interaction, mods, 25, 2000, {
                     textFooter: footer,
                     footer: {
                         text: 'From CCModDB',
                     },
                 });
+                return;
             } else {
                 let possibleError = '';
                 if (modDB.lastError) possibleError += `\n${modDB.lastErrorString()}`;
-                return message.say(
+                await respond(interaction,
                     `Mod information isn't available (has the bot just started up? is the modlist updater dead?).\nPlease see the CCDirectLink website for more information: https://c2dl.info/cc/mods${possibleError}`
                 );
+                return;
             }
 
-        return message.say(`ooo! you haven't added the initial entities! (no ${entityName})`);
+        await respond(interaction, `ooo! you haven't added the initial entities! (no ${entityName})`);
     }
 }
 

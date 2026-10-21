@@ -126,7 +126,7 @@ export function naturalComparison(a: string, b: string): number {
 }
 
 /// Checks if a user is at the local guild's bot-administrative level.
-export function localAdminCheck(t: commando.CommandoMessage): boolean {
+export function localAdminCheck(t: commando.CommandoInteraction): boolean {
     if (t.client.owners!.includes(t.author))
         return true;
     if (t.member)

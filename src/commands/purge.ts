@@ -18,6 +18,8 @@ import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
 import {localRPCheck} from '../role-utils';
 import {PurgeDatabaseChannelEntity} from '../entities/purge-database';
+import {getChannel, respond} from '../command-context';
+import {integerOption, slashInfo} from '../slash-options';
 
 /// Purges the bot's messages.
 export default class PurgeCommand extends CCBotCommand {
@@ -26,48 +28,55 @@ export default class PurgeCommand extends CCBotCommand {
             name: 'purge',
             description: 'Deletes messages from the bot. Defaults to 1 minute.',
             group: 'general',
-            memberName: 'purge',
-            args: [
-                {
-                    key: 'seconds',
-                    prompt: 'The amount of time in seconds?',
-                    type: 'integer',
-                    default: 60
-                }
-            ]
+            memberName: 'purge'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            integerOption('seconds', 'The amount of time in seconds?', false)
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {seconds: number}): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {seconds?: number}): Promise<void> {
         // Get the database
-        const database = this.client.entities.getEntity<PurgeDatabaseChannelEntity>(`purge-channel-${message.channel.id}`);
-        if (!database)
-            return await message.say('The purge database doesn\'t exist.');
-        if (args.seconds <= 1)
-            return await message.say('Too short to be practical.');
-
-        if (!localRPCheck(message, ['ViewChannel', 'ManageMessages'], 'purgers')) {
-            return await message.say('You aren\'t authorized to do that.\nYou need READ\\_MESSAGES & MANAGE\\_MESSAGES, or you need to be in the `purgers` role group.');
-        } else {
-            if (message.channel.isDMBased())
-                return await message.say('That can\'t be done here. (DM channel?)');
-            // Nuke it. I hope you intended this...
-            const collated: string[] = [];
-            const targetTimestamp = message.createdAt.getTime() - (args.seconds * 1000);
-            for (let i = database.messages.length - 1; i >= 0; i--) {
-                const msgID = database.messages[i];
-                if (discord.SnowflakeUtil.deconstruct(msgID).timestamp >= targetTimestamp) {
-                    this.client.entities.killEntity(`message-${msgID}`, true);
-                    collated.push(msgID);
-                    if (collated.length >= 200)
-                        break;
-                } else {
-                    break;
-                }
-            }
-            await message.channel.bulkDelete(collated);
-            return [];
+        const database = this.client.entities.getEntity<PurgeDatabaseChannelEntity>(`purge-channel-${interaction.channelId}`);
+        if (!database) {
+            await respond(interaction, 'The purge database doesn\'t exist.');
+            return;
         }
+        const seconds: number = args.seconds ?? 60;
+        if (seconds <= 1) {
+            await respond(interaction, 'Too short to be practical.');
+            return;
+        }
+
+        if (!localRPCheck(interaction, ['ViewChannel', 'ManageMessages'], 'purgers')) {
+            await respond(interaction, 'You aren\'t authorized to do that.\nYou need READ\\_MESSAGES & MANAGE\\_MESSAGES, or you need to be in the `purgers` role group.');
+            return;
+        }
+
+        const channel = await getChannel(interaction);
+        if (channel.isDMBased()) {
+            await respond(interaction, 'That can\'t be done here. (DM channel?)');
+            return;
+        }
+        if (!('bulkDelete' in channel)) {
+            await respond(interaction, 'That can\'t be done here.');
+            return;
+        }
+        // Nuke it. I hope you intended this...
+        const collated: string[] = [];
+        const targetTimestamp = Date.now() - (seconds * 1000);
+        for (let i = database.messages.length - 1; i >= 0; i--) {
+            const msgID = database.messages[i];
+            if (discord.SnowflakeUtil.deconstruct(msgID).timestamp >= targetTimestamp) {
+                this.client.entities.killEntity(`message-${msgID}`, true);
+                collated.push(msgID);
+                if (collated.length >= 200)
+                    break;
+            } else {
+                break;
+            }
+        }
+        await channel.bulkDelete(collated);
+        await respond(interaction, `Purged ${collated.length} message(s).`);
     }
 }

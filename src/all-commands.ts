@@ -26,6 +26,7 @@ import {EmoteCommand, ListEmotesCommand, ReactCommand} from './commands/emotes';
 import {ModsToolsGetCommand} from './commands/mods';
 import SayCommand from './commands/say';
 import InviteCommand from './commands/invite';
+import HelpCommand from './commands/help';
 import {CCBot} from './ccbot';
 import ModsPrCommand from './commands/ccmoddb-pr/pr';
 
@@ -33,14 +34,8 @@ import ModsPrCommand from './commands/ccmoddb-pr/pr';
 export default function registerAllCommands(cr: CCBot, ccmoddbPublishChannelId: string[] | undefined): void {
     cr.registry.registerDefaultTypes();
     cr.registry.registerDefaultGroups();
-    cr.registry.registerDefaultCommands({
-        help: false, // not compatible with the new dispatcher
-        prefix: true,
-        eval: true,
-        ping: false,
-        commandState: true,
-        unknownCommand: false // we have our own implementation in commands.json
-    });
+    // NOTE: The default prefix commands are not registered.
+    //  This bot only uses slash commands.
 
     // util
     cr.registry
@@ -61,8 +56,8 @@ export default function registerAllCommands(cr: CCBot, ccmoddbPublishChannelId: 
         .registerCommand(new RmQuoteCommand(cr))
 
         .registerGroup({ id: 'general' })
-        .registerCommand(new ArmyCommand(cr, 'general', 'cheesearmy'))
-        .registerCommand(new ArmyCommand(cr, 'general', 'leacheesearmy', 'leaCheeseAngry'))
+        .registerCommand(new ArmyCommand(cr, 'general', 'cheese-army'))
+        .registerCommand(new ArmyCommand(cr, 'general', 'leacheese-army', 'leaCheeseAngry'))
         .registerCommand(new PingCommand(cr))
         .registerCommand(new ListEmotesCommand(cr, false))
         .registerCommand(new ListEmotesCommand(cr, true))
@@ -73,6 +68,7 @@ export default function registerAllCommands(cr: CCBot, ccmoddbPublishChannelId: 
         .registerCommand(new PurgeCommand(cr))
         .registerCommand(new InspireCommand(cr))
         .registerCommand(new InviteCommand(cr))
+        .registerCommand(new HelpCommand(cr))
 
         .registerGroup({ id: 'roles' })
         .registerCommand(new RolesAddCommand(cr))

@@ -14,23 +14,22 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import * as discord from 'discord.js';
-import * as commando from 'discord.js-commando';
 import {EntityData} from '../entity-registry';
 import {CCBot, CCBotEntity} from '../ccbot';
+import {CCBotInteraction, respond} from '../command-context';
 import {TextBasedChannel, isChannelTextBased, silence} from '../utils';
 
-const ui1 = '⏮';
-const ui2 = '◀';
-const ui3 = '▶';
-const ui4 = '⏭';
-const uiDelete = '🚫';
-const uiEmotes: string[] = [ui1, ui2, ui3, ui4, uiDelete];
-const uiOffsets = new Map<string, number>([
-    [ui1, -10],
-    [ui2, -1],
-    [ui3, 1],
-    [ui4, 10],
-]);
+const uiFirst = '⏮';
+const uiPrev = '◀';
+const uiNext = '▶';
+const uiLast = '⏭';
+const uiClose = '🚫';
+
+/// The prefix of the custom IDs of the page switcher's buttons.
+export const pageSwitcherButtonPrefix = 'ccbot-pageswitcher';
+
+/// The actions that the page switcher's buttons can perform.
+export type PageSwitcherAction = 'first' | 'prev' | 'next' | 'last' | 'close';
 
 export interface PageSwitcherData extends EntityData {
     // Channel ID.
@@ -68,9 +67,30 @@ export interface PageSwitcherOutputElementWithCategory {
 }
 export type PageSwitcherOutputElement = string | PageSwitcherOutputElementWithCategory;
 
+/// Builds the row of buttons that drives the page switcher.
+function buildButtonRow(): discord.ActionRowBuilder<discord.ButtonBuilder> {
+    const button = (action: PageSwitcherAction, label: string): discord.ButtonBuilder =>
+        new discord.ButtonBuilder()
+            .setCustomId(`${pageSwitcherButtonPrefix}:${action}`)
+            .setLabel(label)
+            .setStyle(discord.ButtonStyle.Secondary);
+    return new discord.ActionRowBuilder<discord.ButtonBuilder>().addComponents(
+        button('first', uiFirst),
+        button('prev', uiPrev),
+        button('next', uiNext),
+        button('last', uiLast),
+        button('close', uiClose)
+    );
+}
+
+/// Checks whether a custom ID belongs to the page switcher.
+export function isPageSwitcherButton(customId: string): boolean {
+    return customId.startsWith(`${pageSwitcherButtonPrefix}:`);
+}
+
 /// Outputs *either* a page switcher or a single post depending on what's appropriate.
 /// Very customizable.
-export async function outputElements(client: CCBot, msg: commando.CommandoMessage, elements: PageSwitcherOutputElement[], elementsPerPage: number, pageLength: number, options?: PageSwitcherOutputElementsAdditionalOptions): Promise<commando.CommandoMessageResponse> {
+export async function outputElements(client: CCBot, interaction: CCBotInteraction, elements: PageSwitcherOutputElement[], elementsPerPage: number, pageLength: number, options?: PageSwitcherOutputElementsAdditionalOptions): Promise<void> {
     options = options || {};
 
     const {footer} = options;
@@ -81,7 +101,8 @@ export async function outputElements(client: CCBot, msg: commando.CommandoMessag
 
     // Don't send empty embeds.
     if (elements.length === 0) {
-        return msg.say('Nothing found!');
+        await respond(interaction, 'Nothing found!');
+        return;
     }
 
     // The algorithm begins...
@@ -154,22 +175,25 @@ export async function outputElements(client: CCBot, msg: commando.CommandoMessag
     }
     // Finish last page
     finishPage();
+
     // Actual output
-    if (pages.length == 1)
-        return msg.embed(new discord.EmbedBuilder(pages[0]));
-    const output = await msg.say(formatHeader(0, pages.length), {embeds: [new discord.EmbedBuilder(pages[0])]}) as discord.Message;
-    for (const reaction of uiEmotes)
-        await output.react(reaction);
+    if (pages.length == 1) {
+        await respond(interaction, '', {embeds: [new discord.EmbedBuilder(pages[0])]});
+        return;
+    }
+    const output = await respond(interaction, formatHeader(0, pages.length), {
+        embeds: [new discord.EmbedBuilder(pages[0])],
+        components: [buildButtonRow()]
+    });
     await client.entities.newEntity({
         type: 'page-switcher',
-        channel: msg.channel.id,
+        channel: interaction.channelId,
         message: output.id,
-        user: msg.author.id,
+        user: interaction.user.id,
         page: 0,
         pages,
         killTimeout: 60000
     });
-    return output;
 }
 
 /// Used for a paged interactive UI.
@@ -181,8 +205,6 @@ class PageSwitcherEntity extends CCBotEntity {
     private user: string;
     private page: number;
     private pages: discord.APIEmbed[];
-    // Starts out true. Changes to false if it can't get rid of the user's reaction.
-    private ignoreRemovals: boolean;
 
     public constructor(c: CCBot, channel: TextBasedChannel, message: discord.Message, data: PageSwitcherData) {
         super(c, `message-${message.id}`, data);
@@ -191,11 +213,6 @@ class PageSwitcherEntity extends CCBotEntity {
         this.user = data.user;
         this.page = data.page;
         this.pages = data.pages;
-        if (data.ignoreRemovals === undefined) {
-            this.ignoreRemovals = true;
-        } else {
-            this.ignoreRemovals = data.ignoreRemovals;
-        }
     }
 
     public toSaveData(): PageSwitcherData {
@@ -214,50 +231,55 @@ class PageSwitcherEntity extends CCBotEntity {
             silence(this.message.delete());
     }
 
-    public emoteReactionTouched(target: discord.Emoji, user: discord.User, add: boolean): void {
-        super.emoteReactionTouched(target, user, add);
-
-        if (user.id != this.user)
+    /// Handles a button press on one of the page switcher's buttons.
+    public buttonInteractionTouched(interaction: discord.ButtonInteraction): void {
+        // Only the person who asked for this menu may use it.
+        if (interaction.user.id !== this.user) {
+            silence(interaction.reply({
+                content: 'This menu belongs to someone else.',
+                flags: discord.MessageFlags.Ephemeral
+            }));
             return;
-
-        if (this.ignoreRemovals && !add)
-            return;
-
-        const offset = uiOffsets.get(target.name ?? '');
-        if (offset !== undefined) {
-            this.page += offset;
-            if (this.pages.length != 0) {
-                if (offset < 0) {
-                    while (this.page < 0)
-                        this.page = this.pages.length - 1;
-                } else {
-                    this.page %= this.pages.length;
-                }
-            }
-            // Update display...
-            this.message.edit({
-                content: formatHeader(this.page, this.pages.length), 
-                embeds: [new discord.EmbedBuilder(this.pages[this.page])]
-            }).catch((): void => {
-                silence(this.message.react('⚠'));
-            });
-            this.postponeDeathAndUpdate();
-        } else if (target.name == uiDelete) {
-            // Alwinfy's Plan: Shut down...
-            for (const r of this.message.reactions.cache.values())
-                if (r.me)
-                    silence(r.users.remove());
+        }
+        const action = interaction.customId.substring(pageSwitcherButtonPrefix.length + 1) as PageSwitcherAction;
+        if (action === 'close') {
+            silence(interaction.update({components: []}));
             this.kill(true);
+            return;
         }
+        // Update display...
+        this.updatePage(action);
+        silence(interaction.update({
+            content: formatHeader(this.page, this.pages.length),
+            embeds: [new discord.EmbedBuilder(this.pages[this.page])],
+            components: [buildButtonRow()]
+        }));
+        this.postponeDeathAndUpdate();
+    }
 
-        // Try to remove reaction (Nnubes256's suggestion)
-        const reaction = this.message.reactions.cache.get(target.id ?? target.name ?? '');
-        if (this.ignoreRemovals && reaction) {
-            reaction.users.remove(user).catch((): void => {
-                this.ignoreRemovals = false;
-                this.updated();
-            });
+    /// Moves the page pointer according to the given action.
+    private updatePage(action: PageSwitcherAction): void {
+        if (this.pages.length === 0)
+            return;
+        switch (action) {
+            case 'first':
+                this.page = 0;
+                break;
+            case 'prev':
+                this.page -= 1;
+                break;
+            case 'next':
+                this.page += 1;
+                break;
+            case 'last':
+                this.page = this.pages.length - 1;
+                break;
         }
+        // Wrap around in both directions.
+        if (this.page < 0)
+            this.page = this.pages.length - 1;
+        else
+            this.page %= this.pages.length;
     }
 }
 
@@ -265,7 +287,7 @@ class PageSwitcherEntity extends CCBotEntity {
 export default async function load(c: CCBot, data: PageSwitcherData): Promise<CCBotEntity> {
     // This makes a possible DM channel with the user 'important enough' to start existing
     // Blame discord.js
-    const yesCacheMe = await c.users.fetch(data.user, {cache:true});
+    const yesCacheMe = await c.users.fetch(data.user, {cache: true});
     await yesCacheMe.createDM();
     const channel = c.channels.cache.get(data.channel);
     if (!channel || !isChannelTextBased(channel))
@@ -275,10 +297,9 @@ export default async function load(c: CCBot, data: PageSwitcherData): Promise<CC
         // New
         message = await channel.send({
             content: formatHeader(0, data.pages.length),
-            embeds: [new discord.EmbedBuilder(data.pages[0])]
+            embeds: [new discord.EmbedBuilder(data.pages[0])],
+            components: [buildButtonRow()]
         }) as discord.Message;
-        for (const reaction of uiEmotes)
-            await message.react(reaction);
     } else {
         // Reused
         message = await channel.messages.fetch(data.message);

@@ -15,6 +15,8 @@
 
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
+import {respond} from '../command-context';
+import {integerOption, slashInfo, stringOption} from '../slash-options';
 
 /// Inspires you with a quote.
 export class InspireCommand extends CCBotCommand {
@@ -25,19 +27,25 @@ export class InspireCommand extends CCBotCommand {
             group: 'general',
             memberName: 'inspire'
         };
-        super(client, opt);
+        super(client, opt, slashInfo());
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
-        if (!this.client.isProviderReady()) return message.say("Something terrible has happened, the settings provider is not initialized.");
+    public async run(interaction: commando.CommandoInteraction): Promise<void> {
+        if (!this.client.isProviderReady()) {
+            await respond(interaction, "Something terrible has happened, the settings provider is not initialized.");
+            return;
+        }
         const quotes: string[] = this.client.provider.get('global', 'quotes', []);
         const lastQuote: number = this.client.provider.get('global', 'lastQuote', -1);
-        if (quotes.length == 0)
-            return message.say('I\'m actually two thirds space alien, one third goat, another two thirds blueberry, and five thirds pure, unintensified hugs.\nAnd I have no quotes for you.');
+        if (quotes.length == 0) {
+            await respond(interaction, 'I\'m actually two thirds space alien, one third goat, another two thirds blueberry, and five thirds pure, unintensified hugs.\nAnd I have no quotes for you.');
+            return;
+        }
         if (quotes.length == 1) {
             if (lastQuote != 0)
                 await this.client.provider.set('global', 'lastQuote', 0);
-            return message.say(`0: ${quotes[0]}`);
+            await respond(interaction, `0: ${quotes[0]}`);
+            return;
         }
         const effectiveLength: number = ((lastQuote >= 0) && (lastQuote < quotes.length)) ? (quotes.length - 1) : quotes.length;
         let target = Math.floor(Math.random() * effectiveLength);
@@ -45,7 +53,7 @@ export class InspireCommand extends CCBotCommand {
             if (target >= lastQuote)
                 target++;
         await this.client.provider.set('global', 'lastQuote', target);
-        return message.say(`${target}: ${quotes[target]}`);
+        await respond(interaction, `${target}: ${quotes[target]}`);
     }
 }
 
@@ -53,29 +61,27 @@ export class InspireCommand extends CCBotCommand {
 export class AddQuoteCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
-            name: '-util add-quote',
+            name: 'add-quote',
             description: 'adds a quote',
             group: 'util',
             memberName: 'add-quote',
-            ownerOnly: true,
-            args: [
-                {
-                    key: 'quote',
-                    prompt: 'Text?',
-                    type: 'string'
-                }
-            ]
+            ownerOnly: true
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('quote', 'Text?')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {quote: string}): Promise<commando.CommandoMessageResponse> {
-        if (!this.client.isProviderReady()) return message.say("Something terrible has happened, the settings provider is not initialized.");
+    public async run(interaction: commando.CommandoInteraction, args: {quote: string}): Promise<void> {
+        if (!this.client.isProviderReady()) {
+            await respond(interaction, "Something terrible has happened, the settings provider is not initialized.");
+            return;
+        }
         const quotes: string[] = this.client.provider.get('global', 'quotes', []);
         const newQuotes: string[] = JSON.parse(JSON.stringify(quotes));
         newQuotes.push(args.quote);
         await this.client.provider.set('global', 'quotes', newQuotes);
-        return message.say(`Done, this is quote ${quotes.length}`); // *not* newQuotes, then it'd have to -1
+        await respond(interaction, `Done, this is quote ${quotes.length}`); // *not* newQuotes, then it'd have to -1
     }
 }
 
@@ -83,32 +89,34 @@ export class AddQuoteCommand extends CCBotCommand {
 export class RmQuoteCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
-            name: '-util rm-quote',
+            name: 'rm-quote',
             description: 'removes a quote',
             group: 'util',
             memberName: 'rm-quote',
-            ownerOnly: true,
-            args: [
-                {
-                    key: 'quote',
-                    prompt: 'ID?',
-                    type: 'integer'
-                }
-            ]
+            ownerOnly: true
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            integerOption('quote', 'ID?')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {quote: number}): Promise<commando.CommandoMessageResponse> {
-        if (!this.client.isProviderReady()) return message.say("Something terrible has happened, the settings provider is not initialized.");
+    public async run(interaction: commando.CommandoInteraction, args: {quote: number}): Promise<void> {
+        if (!this.client.isProviderReady()) {
+            await respond(interaction, "Something terrible has happened, the settings provider is not initialized.");
+            return;
+        }
         const quotes: string[] = this.client.provider.get('global', 'quotes', []);
         const newQuotes: string[] = JSON.parse(JSON.stringify(quotes));
-        if (args.quote < 0)
-            return message.say('Can\'t, Curly Brace would be mad.');
-        if (args.quote >= newQuotes.length)
-            return message.say('Can\'t, the *other* Curly Brace would be mad.');
+        if (args.quote < 0) {
+            await respond(interaction, 'Can\'t, Curly Brace would be mad.');
+            return;
+        }
+        if (args.quote >= newQuotes.length) {
+            await respond(interaction, 'Can\'t, the *other* Curly Brace would be mad.');
+            return;
+        }
         newQuotes.splice(args.quote, 1);
         await this.client.provider.set('global', 'quotes', newQuotes);
-        return message.say(`Done, this is quote ${quotes.length}`); // *not* newQuotes, then it'd have to -1
+        await respond(interaction, `Done, this is quote ${quotes.length}`); // *not* newQuotes, then it'd have to -1
     }
 }

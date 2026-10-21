@@ -18,72 +18,79 @@ import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
 import {emoteSafe, findMemberByRef} from '../utils';
 import {userAwareGetEmote} from '../entities/user-datablock';
+import {argList, getChannel, respond} from '../command-context';
+import {slashInfo, stringOption} from '../slash-options';
 
 /// For hugging.
 export default class HugCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         const opt: commando.CommandInfo = {
             name: 'hug',
-            description: 'hugs another user, or set of users. end the list of people with a number to hug them multiple times. Designed by Emileyah, Monika!, Kumatsun & 20kdc.',
+            description: 'Hugs another user, or a set of users. End the list with a number to hug that many times.',
             group: 'general',
-            memberName: 'hug',
-            args: [
-                {
-                    key: 'people',
-                    prompt: 'Who to hug (and, optionally, how many times)?',
-                    type: 'string',
-                    infinite: true
-                }
-            ]
+            memberName: 'hug'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('people', 'Who to hug (and, optionally, how many times)?')
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: {people: string[]}): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {people: string}): Promise<void> {
         /*
          * Design contributions by:
          *  Emileyah: 208763015657553921
          *  Monika!: 394808963356688394
          *  Kumatsun: 306499531665833984
          */
-        if (args.people.length == 0)
-            return [];
-        let effectiveLength = args.people.length;
-        let tryTimes = parseInt(args.people[args.people.length - 1], 10);
+        const people: string[] = argList(args.people);
+        if (people.length == 0) {
+            await respond(interaction, 'Who should I hug?');
+            return;
+        }
+        let effectiveLength = people.length;
+        let tryTimes = parseInt(people[people.length - 1], 10);
         if ((!Number.isNaN(tryTimes)) && (tryTimes < 50)) {
             effectiveLength--;
         } else {
             tryTimes = 1;
         }
-        if (tryTimes < 1)
-            return await message.say('The space-hugs continuum would be warped!');
-        if (effectiveLength > 10)
-            return await message.say('The physics of that are questionable, sadly...');
+        if (tryTimes < 1) {
+            await respond(interaction, 'The space-hugs continuum would be warped!');
+            return;
+        }
+        if (effectiveLength > 10) {
+            await respond(interaction, 'The physics of that are questionable, sadly...');
+            return;
+        }
         const lines = [];
-        const hugEmote = await userAwareGetEmote(this.client, message.author, message.guild || null, 'shizuHUG');
-        if (!hugEmote || !emoteSafe(hugEmote, message.channel))
-            return await message.say('A configuration issue has made shizuHUG an NSFW emote, and this isn\'t an NSFW channel.');
+        const hugEmote = await userAwareGetEmote(this.client, interaction.author, interaction.guild, 'shizuHUG');
+        if (!hugEmote || !emoteSafe(hugEmote, await getChannel(interaction))) {
+            await respond(interaction, 'A configuration issue has made shizuHUG an NSFW emote, and this isn\'t an NSFW channel.');
+            return;
+        }
         const hugEmoteString = hugEmote.toString().repeat(tryTimes);
         const alreadyHugged: Set<discord.User> = new Set();
         for (let i = 0; i < effectiveLength; i++) {
-            const member = findMemberByRef(message.guild || null, args.people[i]);
+            const member = findMemberByRef(interaction.guild, people[i]);
             if (member) {
                 if (alreadyHugged.has(member.user))
                     continue;
-                if (member.user == message.author) {
+                if (member.user == interaction.author) {
                     lines.push(`You shouldn't have to hug yourself, but ${this.client.user} will hug you! ${hugEmote}`);
                 } else {
                     lines.push(`${hugEmoteString} ${member.user.toString()}`);
                 }
                 alreadyHugged.add(member.user);
             } else {
-                lines.push(`Couldn't find ${args.people[i]}!`);
+                lines.push(`Couldn't find ${people[i]}!`);
             }
         }
 
         const text = lines.join('\n');
-        if (text.length > 2000)
-            return await message.say('Hug overload!');
-        return await message.say(text);
+        if (text.length > 2000) {
+            await respond(interaction, 'Hug overload!');
+            return;
+        }
+        await respond(interaction, text);
     }
 }

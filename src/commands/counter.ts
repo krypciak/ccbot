@@ -16,27 +16,22 @@
 import * as commando from 'discord.js-commando';
 import { CCBot, CCBotCommand } from '../ccbot';
 import { PageSwitcherOutputElementWithCategory, outputElements } from '../entities/page-switcher';
+import { booleanOption, slashInfo } from '../slash-options';
 
 /// A counter.
 export default class CounterCommand extends CCBotCommand {
     public constructor(client: CCBot) {
         super(client, {
-            name: '-util counter',
+            name: 'counter',
             description: 'Creates a 50-page bunch of nonsense to read through for bot testing.',
             group: 'util',
-            memberName: 'counter',
-            args: [
-                {
-                    key: 'error',
-                    prompt: 'Triggers an error (useful for testing handling)',
-                    type: 'boolean',
-                    default: false
-                }
-            ]
-        });
+            memberName: 'counter'
+        }, slashInfo([
+            booleanOption('error', 'Triggers an error (useful for testing handling)', false)
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage, args: { error: boolean }): Promise<commando.CommandoMessageResponse> {
+    public async run(interaction: commando.CommandoInteraction, args: {error?: boolean}): Promise<void> {
         if (args.error)
             throw new Error('The user wanted an error.');
         const pages: PageSwitcherOutputElementWithCategory[] = [];
@@ -46,6 +41,6 @@ export default class CounterCommand extends CCBotCommand {
                 text: `Element ${i + 1}`
             });
         }
-        return await outputElements(this.client, message, pages, 2, 2000);
+        await outputElements(this.client, interaction, pages, 2, 2000);
     }
 }

@@ -56,7 +56,7 @@ export function getUserDeniedRoles(client: CCBot<boolean>, member: discord.Guild
 }
 
 /// Performs: localAdminCheck OR (HAS ALL OF enablingPermissions) OR (HAS A ROLE IN enablingRoleGroup)
-export function localRPCheck(message: commando.CommandoMessage, enablingPermissions: discord.PermissionResolvable[], enablingRoleGroup: string): boolean {
+export function localRPCheck(message: commando.CommandoInteraction, enablingPermissions: discord.PermissionResolvable[], enablingRoleGroup: string): boolean {
     if (localAdminCheck(message))
         return true;
     if (message.member) {

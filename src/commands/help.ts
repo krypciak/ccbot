@@ -16,82 +16,72 @@
 import * as discord from 'discord.js';
 import * as commando from 'discord.js-commando';
 import {CCBot, CCBotCommand} from '../ccbot';
+import {PageSwitcherOutputElement, outputElements} from '../entities/page-switcher';
+import {respond} from '../command-context';
+import {slashInfo, stringOption} from '../slash-options';
 
-/// Help command in -general that's friendlier to the new dispatcher.
+/// The help command.
 export default class HelpCommand extends CCBotCommand {
-    public constructor(client: CCBot, group: string) {
+    public constructor(client: CCBot) {
         const opt = {
-            name: `-${group} help`,
+            name: 'help',
             description: 'provides the text you\'re reading!',
-            group,
+            group: 'general',
             memberName: 'help'
         };
-        super(client, opt);
+        super(client, opt, slashInfo([
+            stringOption('command', 'The command to get help for. Leave empty for the full list.', false)
+        ]));
     }
 
-    public async run(message: commando.CommandoMessage): Promise<commando.CommandoMessageResponse> {
-        const lines = [
-            `__**${this.group.name} Commands**__`,
-            ''
-        ];
-
-        if (this.groupId == 'general') {
-            lines.push('To send a command, prefix the bot prefix (or a ping to the bot).');
-            lines.push('The bot prefix/ping isn\'t necessary in DMs.');
-            lines.push('');
+    public async run(interaction: commando.CommandoInteraction, args: {command?: string}): Promise<void> {
+        if (args.command) {
+            await this.showCommandHelp(interaction, args.command);
+            return;
         }
-
-        for (const cmd of this.group.commands.values()) {
-            const fmt = cmd.format ? ` ${cmd.format}` : '';
-            if (cmd.description != 'UNDOCUMENTED') {
-                if (this.groupId === 'general') {
-                    lines.push(`** ${cmd.memberName}${fmt} **: ${cmd.description}`);
-                } else {
-                    lines.push(`** -${this.group.id} ${cmd.memberName}${fmt} **: ${cmd.description}`);
-                }
-            }
-
-        }
-
-        // Append some details on other groups
-        const allGroups = Array.from(this.client.registry.groups.keys());
-        lines.push('');
-        lines.push(`Also see: \`-${allGroups.join(' help`, `-')} help\``);
-
-        // The text is set in stone from here on in.
-        const text = [lines.join('\n')];
-        let index = 0;
-        while (index < text.length) {
-            let didSomethingThisRound = false;
-            while (text[index].length > 2000) {
-                const target = text[index];
-                let breakp = target.lastIndexOf('\n');
-                if (breakp == -1)
-                    breakp = target.length / 2;
-                text[index] = target.substring(0, breakp);
-                if (!didSomethingThisRound) {
-                    text[index + 1] = target.substring(breakp + 1);
-                    didSomethingThisRound = true;
-                } else {
-                    text[index + 1] = `${target.substring(breakp + 1)}\n${text[index + 1]}`;
-                }
-            }
-            index++;
-        }
-        if (message.channel instanceof discord.DMChannel) {
-            const array: discord.Message[] = [];
-            for (const str of text)
-                array.push(await message.say(str) as discord.Message);
-            return array;
-        } else {
-            try {
-                for (const str of text)
-                    await message.author.send(str);
-                return await message.say('The help page has been sent to your DMs.');
-            } catch (_e) {
-                console.log(_e);
-                return await message.say('Tried to send help information to DMs, but... are your DMs blocked?');
+        const elements: PageSwitcherOutputElement[] = [];
+        for (const group of this.client.registry.groups.values()) {
+            const commands = Array.from(group.commands.values())
+                .filter((cmd: commando.Command): boolean => cmd.description !== 'UNDOCUMENTED');
+            if (commands.length === 0)
+                continue;
+            for (const cmd of commands) {
+                elements.push({
+                    category: `__**${group.name}**__`,
+                    text: `**/${cmd.name}**: ${cmd.description}`
+                });
             }
         }
+        if (elements.length === 0) {
+            await respond(interaction, 'There are no commands to show.');
+            return;
+        }
+        await outputElements(this.client, interaction, elements, 10, 2000);
+    }
+
+    /// Shows the details of a single command.
+    private async showCommandHelp(interaction: commando.CommandoInteraction, name: string): Promise<void> {
+        let cmd: commando.Command;
+        try {
+            cmd = this.client.registry.resolveCommand(name.toLowerCase().replace(/^\//, ''));
+        } catch (_e) {
+            await respond(interaction, `There is no command called \`${name}\`.`);
+            return;
+        }
+        const embed = new discord.EmbedBuilder()
+            .setTitle(`/${cmd.name}`)
+            .setDescription(cmd.description)
+            .setFooter({text: `Group: ${cmd.group.name}`});
+        if (cmd.details)
+            embed.addFields({name: 'Details', value: cmd.details});
+        const options = cmd.slashCommand?.options ?? [];
+        if (options.length > 0)
+            embed.addFields({
+                name: 'Options',
+                value: options.map((option): string => `\`${option.name}\`: ${option.description}${option.required ? '' : ' (optional)'}`).join('\n')
+            });
+        if (cmd.examples && cmd.examples.length > 0)
+            embed.addFields({name: 'Examples', value: cmd.examples.map((example: string): string => `\`${example}\``).join('\n')});
+        await respond(interaction, '', {embeds: [embed]});
     }
 }

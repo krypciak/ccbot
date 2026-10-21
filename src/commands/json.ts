@@ -20,6 +20,8 @@ import {nsfw} from '../utils';
 import {CCBot, CCBotCommand} from '../ccbot';
 import {VM, VMContext, runFormat} from '../formatter';
 import {userAwareGetEmote} from '../entities/user-datablock';
+import {argList, getChannel, respond} from '../command-context';
+import {optionsFromArgs, slashInfo} from '../slash-options';
 
 /// Copies an object while also formatting it.
 /// Don't ask me how the type conversions are supposed to make sense.
@@ -43,47 +45,48 @@ export default class JSONCommand extends CCBotCommand {
     private readonly command: structures.Command;
 
     public constructor(client: CCBot, group: string, name: string, json: structures.Command) {
-        const opt = {
-            name: `-${group.toLowerCase()} ${name.toLowerCase()}`,
+        const opt: commando.CommandInfo = {
+            name,
             description: json.description || 'No description.',
             group: group.toLowerCase(),
-            memberName: name.toLowerCase()
+            memberName: name.toLowerCase(),
+            nsfw: json.nsfw
         };
         // Allows overriding the involved Commando options.
         // This includes adding arguments.
         if (json.options)
             Object.assign(opt, json.options);
-        super(client, opt);
+        super(client, opt, slashInfo(optionsFromArgs(json.options?.args ?? [])));
         this.command = json;
     }
 
-    public async run(message: commando.CommandoMessage, args: {args: string[]}): Promise<commando.CommandoMessageResponse> {
-        if (this.command.nsfw && !nsfw(message.channel))
-            return await message.say('That command is NSFW, and this is not an NSFW channel.');
+    public async run(interaction: commando.CommandoInteraction, args: {args?: string}): Promise<void> {
+        const channel = await getChannel(interaction);
+        if (this.command.nsfw && !nsfw(channel)) {
+            await respond(interaction, 'That command is NSFW, and this is not an NSFW channel.');
+            return;
+        }
 
         // VM State Init
         const vmContext: VMContext = {
             client: this.client,
-            channel: message.channel,
-            cause: message.author,
+            channel,
+            cause: interaction.author,
             // JSON commands are always part of the bot (for now)
-            writer: message.author,
+            writer: interaction.author,
             protectedContent: false,
             args: [],
         };
 
         // VM Arguments Init
-        if (args?.args) {
-            // TODO: when can args.args be not an array?
-            if (args.args.constructor === Array) {
-                vmContext.args = args.args;
-            } else {
-                vmContext.args = [args.args.toString()];
-            }
+        if (args?.args !== undefined) {
+            vmContext.args = argList(args.args);
         }
         for (const arg of vmContext.args)
-            if (typeof arg !== 'string')
-                return await message.say('That command can only eat strings, but it was given non-strings.');
+            if (typeof arg !== 'string') {
+                await respond(interaction, 'That command can only eat strings, but it was given non-strings.');
+                return;
+            }
 
         // VM Execution
         let formatText;
@@ -97,7 +100,7 @@ export default class JSONCommand extends CCBotCommand {
         }
 
         // Message Options
-        const opts: discord.MessageCreateOptions & { split: false } = { split: false };
+        const opts: discord.InteractionReplyOptions = {};
         let hasMeta = false;
 
         // Embed
@@ -106,18 +109,40 @@ export default class JSONCommand extends CCBotCommand {
             hasMeta = true;
         }
 
-        // Side-effects
-        // Reactions to original command message
-        if (this.command.commandReactions) {
-            for (const react of this.command.commandReactions) {
-                const emote = await userAwareGetEmote(this.client, message.author, message.guild || null, react);
-                await message.react(emote instanceof discord.GuildEmoji ? emote : emote!.name!);
-            }
+        // Actually send resulting message if necessary
+        let response: discord.Message;
+        if ((formatText != '') || hasMeta) {
+            response = await respond(interaction, formatText, opts);
+        } else {
+            response = await respond(interaction, 'Nothing to say.');
         }
 
-        // Actually send resulting message if necessary
-        if ((formatText != '') || hasMeta)
-            return await message.say(formatText, opts);
-        return [];
+        // Side-effects
+        // Reactions to the message the command was used on.
+        // If the command wasn't used as a reply, the bot's own response is used.
+        if (this.command.commandReactions) {
+            const replied = interaction.options.resolved?.messages?.first();
+            let target: discord.Message | null = null;
+            if (replied instanceof discord.Message) {
+                try {
+                    target = await channel.messages.fetch(replied.id);
+                } catch (_e) {
+                    // The message is gone. Nothing to react to.
+                    target = null;
+                }
+            }
+            if (!target)
+                target = response;
+            for (const react of this.command.commandReactions) {
+                const emote = await userAwareGetEmote(this.client, interaction.author, interaction.guild, react);
+                if (!emote)
+                    continue;
+                try {
+                    await target.react(emote instanceof discord.GuildEmoji ? emote : emote.name!);
+                } catch (_e) {
+                    // The reaction could not be added. Nothing to do about it.
+                }
+            }
+        }
     }
 }
