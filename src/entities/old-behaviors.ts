@@ -28,6 +28,11 @@ class OldBehaviorsEntity extends CCBotEntity {
             if (this.killed)
                 return;
 
+            // Not every text based channel can send messages (voice channels can't),
+            // so there's nothing to do for those.
+            if (!('send' in m.channel))
+                return;
+
             const lowerContent = m.content.toLowerCase();
 
             // Where the actual behaviors are

@@ -18,7 +18,6 @@ import * as commando from 'discord.js-commando';
 import {CCBot} from './ccbot';
 import {emoteSafe, naturalComparison, nsfwGuild, silence} from './utils';
 import {EmoteRegistryDump} from './data/structures';
-import {RawEmojiData} from 'discord.js/typings/rawDataTypes';
 
 /// Determine if a bit of text looks like an emoji.
 /// Notably, it doesn't actually have to *be* an emoji,
@@ -35,7 +34,7 @@ function looksLikeAnEmoji(text: string): boolean {
 }
 
 class CCBotEmoji extends discord.Emoji {
-  public constructor(client: CCBot<true>, emoji: RawEmojiData) {
+  public constructor(client: CCBot<true>, emoji: discord.APIPartialEmoji) {
     super(client, emoji);
   }
 }
@@ -190,9 +189,9 @@ export default class CCBotEmoteRegistry {
         }
         // Is it a unicode emote?
         return new CCBotEmoji(this.client as CCBot<true>, {
+            id: null,
             animated: false,
             name: looksLikeAnEmoji(text) ? text : '❓',
-            // id: null,
         });
     }
 

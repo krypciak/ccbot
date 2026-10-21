@@ -3,11 +3,14 @@
   "exclude": ["node_modules"],
   "compilerOptions": {
     "outDir": "dist",
+    "rootDir": "./src",
     "sourceMap": true,
     "module": "commonjs",
+    "moduleResolution": "bundler",
     "target": "ES2019",
     "strict": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
   }
 }

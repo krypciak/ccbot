@@ -17,11 +17,10 @@ import * as discord from 'discord.js';
 import { CCBot, CCBotEntity } from '../ccbot';
 import { EntityData } from '../entity-registry';
 import { TextBasedChannel, getGuildTextChannel, silence } from '../utils';
-import { RawUserData } from 'discord.js/typings/rawDataTypes';
 
 /// Makes constructor public so we can create a new User object in AuditorEntity.banListener()
 class DiscordUser extends discord.User {
-    public constructor(client: discord.Client<true>, data: RawUserData) {
+    public constructor(client: discord.Client<true>, data: discord.APIUser) {
         super(client, data);
     }
 }

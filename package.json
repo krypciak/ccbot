@@ -3,33 +3,34 @@
   "version": "0.0.1",
   "main": "./dist/main.js",
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "scripts": {
     "clean": "rm -r dist",
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "\"$NODE\" --inspect dist/main.js",
-    "test": "mocha -r ts-node/register tests/**/*.spec.ts"
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "mocha --require tsx/cjs tests/**/*.spec.ts"
   },
   "devDependencies": {
     "@types/chai": "^4.2.15",
-    "@types/mocha": "^9.1.0",
-    "@types/node": "^17.0.23",
+    "@types/mocha": "^10.0.9",
+    "@types/node": "^22.20.5",
     "@types/ws": "^8.5.3",
-    "ccmoddb": "github:CCDirectLink/CCModDB",
+    "ccmoddb": "github:CCDirectLink/CCModDB#733650957c04ef72de6da8f8f47772e5b3fc8215",
     "chai": "^4.3.0",
-    "mocha": "^9.0.0",
+    "mocha": "^11.8.0",
     "nodemon": "^2.0.15",
-    "ts-node": "^10.0.0",
-    "typescript": "^5.4.5"
+    "tsx": "^4.19.2",
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "@octokit/rest": "^21.0.2",
     "bufferutil": "^4.0.3",
-    "discord-api-types": "^0.37.41",
-    "discord.js": "^14.14.1",
-    "discord.js-commando": "github:Pixoll/pixoll-commando",
+    "discord-api-types": "^0.38.57",
+    "discord.js": "^14.27.0",
+    "discord.js-commando": "github:Pixoll/pixoll-commando#5d21470d3ceb4fc687ec4edb9e946c9472a49cd9",
     "prettier": "^3.3.3",
     "utf-8-validate": "^5.0.4",
     "zlib-sync": "^0.1.9"
